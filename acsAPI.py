@@ -108,7 +108,7 @@ def get_acs_data(tables, years, start="B01001", multi=True):
                         exit
             except Exception as e:
                 failed_get_acs_data = open("/HostData/failed_get_acs_data.txt", "a")
-                failed_get_acs_data.write(\n filename)
+                failed_get_acs_data.write("\n" + filename)
                 failed_get_acs_data.write('\n ERROR - %s' % e)
                 failed_get_acs_data.close()
 
@@ -120,6 +120,9 @@ def acs_ETL(df, filename, filepath):
     # Insert whole DataFrame into MySQL
     conn = pyodbc.connect("DRIVER={ODBC Driver 17 for SQL Server};SERVER=172.17.0.2, 1433;DATABASE=master;UID=sa;PWD=<YourStrong@Passw0rd>", autocommit=True)
     cursor = conn.cursor()
+
+    # NPCOMMENT: if the parameter "filename" is actually the table name, we should 
+    # change it to reflect that
 
     # Create schema, edit text fields to nvarchar
     create = pd.io.sql.get_schema(df, filename)
@@ -153,6 +156,9 @@ if __name__ == "__main__":
     # Write a function that prints a usage statement, and if any errors are 
     # detected on the invocation, notify the user, print the error statement, 
     # and exit with non-zero status.
+    #
+    # I don't see you creating the database anywhere here.  We need to do that, otherwise
+    # all of the tables will get created in the master database.
 
     year_range = str(sys.argv[1])
     
