@@ -73,7 +73,7 @@ This step is not required, but very helpful so your requests are not blocked or 
 
 ### Installation
 
-1. Clone the repo
+1. Clone the repo into the directory of your choosing.
    ```sh
    git clone https://github.com/ccb-hms/acsAPI.git
    ```
@@ -90,7 +90,7 @@ This step is not required, but very helpful so your requests are not blocked or 
     -p 1433:1433 \
     --name sql1 \
     --hostname sql1 \
-    -v ~/Desktop/DockerETLExample:/HostData \
+    -v ~/Desktop/ACS_ETL:/HostData \
     -d \
     --rm \
     mcr.microsoft.com/mssql/server:2019-latest
@@ -103,7 +103,7 @@ This step is not required, but very helpful so your requests are not blocked or 
         --rm \
         --name acsapi \
         -d \
-        -v ~/Desktop/DockerETLExample:/HostData \
+        -v ~/Desktop/ACS_ETL:/HostData \
         -p 8787:8787 \
         -p 2200:22 \
         -e 'CONTAINER_USER_USERNAME=test' \
@@ -126,6 +126,12 @@ This step is not required, but very helpful so your requests are not blocked or 
 
 7. Errors are written to _**failed_get_acs_data.txt**_ (lists errors encountered during the initial pulling of data) and **_failed_sql.txt_** (lists errors that occurred during the SQL ETL process.)
 
+8.When the process has finished, kill the docker containers.
+  ```sh
+  docker kill sql1
+  docker kill workbench 
+  ```
+  
 <p align="right">(<a href="#top">back to top</a>)</p>
 
 <!-- CONTRIBUTING -->
