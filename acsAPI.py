@@ -59,49 +59,52 @@ def get_acs_data(tables, years, start):
         if table in filtered_tables:
             # API request to get all zipcode tabulated data for the current year and table
             print(f"{year} - {table}")
-            response = requests.get(f'https://api.census.gov/data/{year}/acs/acs5?get=NAME,group({table})&for=zip%20code%20tabulation%20area:*&key=62fade369e5f8276f58c592eed6a5a6e19bdbb3a',timeout=10)
-            if response.status_code != 200:
-                failed_apis.write(f"https://api.census.gov/data/{year}/acs/acs5?get=NAME,group({table})&for=zip%20code%20tabulation%20area:*&key=62fade369e5f8276f58c592eed6a5a6e19bdbb3a\n")
-                pass
-            else:
-                # If the API call returns data, load it as a json, then use pandas to transform the data into a dataframe
-                data = response.json()
-                df = pd.DataFrame(data[1:], columns=data[0])
+            try:
+                response = requests.get(f'https://api.census.gov/data/{year}/acs/acs5?get=NAME,group({table})&for=zip%20code%20tabulation%20area:*&key=62fade369e5f8276f58c592eed6a5a6e19bdbb3a',timeout=10)            
+                if response.status_code != 200:
+                    failed_apis.write(f"https://api.census.gov/data/{year}/acs/acs5?get=NAME,group({table})&for=zip%20code%20tabulation%20area:*&key=62fade369e5f8276f58c592eed6a5a6e19bdbb3a\n")
+                    pass
+                else:
+                    # If the API call returns data, load it as a json, then use pandas to transform the data into a dataframe
+                    data = response.json()
+                    df = pd.DataFrame(data[1:], columns=data[0])
 
-                # This API call is to get the human-readable version of all the columns per table.
-                response = requests.get(f"https://api.census.gov/data/{year}/acs/acs5/groups/{table}.json")         
-                cols = response.json()
-                cols = cols['variables']
-                ccols = {}
+                    # This API call is to get the human-readable version of all the columns per table.
+                    response = requests.get(f"https://api.census.gov/data/{year}/acs/acs5/groups/{table}.json")         
+                    cols = response.json()
+                    cols = cols['variables']
+                    ccols = {}
 
-                # Data manipulation, column renaming, null drops
-                for i in cols:
-                    ccols[i] = cols[i]['label'].replace("!!"," ")
+                    # Data manipulation, column renaming, null drops
+                    for i in cols:
+                        ccols[i] = cols[i]['label'].replace("!!"," ")
 
-                # Renaming columns from serial codes to their corresponding human-readable names    
-                df.rename(columns = ccols, inplace=True)
+                    # Renaming columns from serial codes to their corresponding human-readable names    
+                    df.rename(columns = ccols, inplace=True)
 
-                # Remove "ZCTA " from the first column values. Ex. "ZCTA 90210" --> "90210"
-                df = df.replace('ZCTA5 ', '', regex=True)
+                    # Remove "ZCTA " from the first column values. Ex. "ZCTA 90210" --> "90210"
+                    df = df.replace('ZCTA5 ', '', regex=True)
 
-                # Camel-case all column headers
-                df.columns = df.columns.str.title()
-                df.columns = df.columns.str.replace(" ","")
+                    # Camel-case all column headers
+                    df.columns = df.columns.str.title()
+                    df.columns = df.columns.str.replace(" ","")
 
-                # Fill NaN values with nulls
-                df.fillna("",inplace=True)
+                    # Fill NaN values with nulls
+                    df.fillna("",inplace=True)
 
-                # Drop duplicated columns
-                df = df.loc[:,~df.columns.duplicated()]
+                    # Drop duplicated columns
+                    df = df.loc[:,~df.columns.duplicated()]
 
-                # Write file to the shared directory, and call ETL function
-                path = "/HostData/"
-                filename = 'ACS_5Y_Estimates_{year}_{table}_{tablename}'.format(year=year,table=table, tablename=tables[table].replace(" ","_").replace(",","").replace("(", "").replace(")","").replace("-","").replace("/","_"))
-                filepath = path + filename + ".txt"
-                df.to_csv(filepath, encoding='utf-8', index=False, sep =',')
-                acs_ETL(df, filename, filepath)
-    # Close error logging
-    failed_apis.close
+                    # Write file to the shared directory, and call ETL function
+                    path = "/HostData/"
+                    filename = 'ACS_5Y_Estimates_{year}_{table}_{tablename}'.format(year=year,table=table, tablename=tables[table].replace(" ","_").replace(",","").replace("(", "").replace(")","").replace("-","").replace("/","_"))
+                    filepath = path + filename + ".txt"
+                    df.to_csv(filepath, encoding='utf-8', index=False, sep =',')
+                    acs_ETL(df, filename, filepath)
+            except Exception as e:
+                failed_apis = open("/HostData/failed_sql.txt", "a")
+                failed_apis.write('\n\n ERROR - %s' % e)
+                failed_apis.close()
 
 def acs_ETL(df, filename, filepath):
 
