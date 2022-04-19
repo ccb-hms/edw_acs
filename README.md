@@ -60,10 +60,9 @@ This project is built using the following frameworks/libraries.
 
 * [Docker](https://Docker.com/)
 * [Python](https://python.org/)
-* [Pandas](https://pandas.pydata.org/)
+* [Pandas](https://pandas.pydata.org/) 
 
 <p align="right">(<a href="#top">back to top</a>)</p>
-
 
 
 <!-- GETTING STARTED -->
@@ -119,11 +118,11 @@ This step is not required, but very helpful so your requests are not blocked or 
     
     Available parameters are:
     
-    *year: _str_ The year you'd like to download data for in the format "YYYY" or a range of years "YYYY-YYYY". ACS 5 year estimates are available from 2009-2020.
+    * year: _str_ The year you'd like to download data for in the format "YYYY" or a range of years "YYYY-YYYY". ACS 5 year estimates are available from 2009-2020.
     
-    *start: _str, optional, default=‘B01001’_ The table you'd like to start with. This is usually helpful when doing a large data pull that is stopped for any reason. If the process stops due to an error, the console will print the last successful table that was pulled. If no _start_ is defined, default behavior is to start at the beginning, downloading all tables.  
+    * start: _str, optional, default=‘B01001’_ The table you'd like to start with. This is usually helpful when doing a large data pull that is stopped for any reason. If the process stops due to an error, the console will print the last successful table that was pulled. If no _start_ is defined, default behavior is to start at the beginning, downloading all tables.  
     
-    *multi: _bool, optional, default=True_ Whether or not you'd like to download a single table, or all tables for the given year. This is helpful if you do not need all tables within a year. If multi=False, only the specified table will be pulled and exported to the mssql server. Default behavior is multi=True, downloading all tables available for the specified year.
+    * multi: _bool, optional, default=True_ Whether or not you'd like to download a single table, or all tables for the given year. This is helpful if you do not need all tables within a year. If multi=False, only the specified table will be pulled and exported to the mssql server. Default behavior is multi=True, downloading all tables available for the specified year.
 
 7. Errors are written to failed_get_acs_data.txt (lists errors encountered during the initial pulling of data) and failed_sql.txt (lists errors that occurred during the SQL ETL process.)
 
