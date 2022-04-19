@@ -3,6 +3,7 @@
 #Project: Exposome Data Warehouse - American Community Survey 5 Year Estimates API Download
 
 import json
+from selectors import EpollSelector
 import pandas as pd
 import sys
 import openpyxl
@@ -12,7 +13,7 @@ from io import StringIO
 import pyodbc
 from itertools import product
 
-def find_tables(year_range, start):
+def find_tables(year_range, start="B01001", multi=True):
     # Send an http request to the census website to collect all available table shells
     html_parser = etree.HTMLParser()
     web_page = requests.get('https://www.census.gov/programs-surveys/acs/technical-documentation/table-shells.2019.html', timeout=10)
@@ -37,9 +38,9 @@ def find_tables(year_range, start):
         if i['Table ID'][0] == "B": 
             tables[i['Table ID']] = i['Table Title']
 
-    get_acs_data(tables, year_range, start)
+    get_acs_data(tables, year_range, start, multi)
 
-def get_acs_data(tables, years, start):
+def get_acs_data(tables, years, start="B01001", multi=True):
     # If the user entered a specific table (optional arg), filter out the one's we've already done. 
     filtered_tables = list(tables.keys())[list(tables.keys()).index(start):]
 
@@ -55,8 +56,11 @@ def get_acs_data(tables, years, start):
 
     # Loop through each year in the users defined range, and each table available in the API
     failed_apis = open("/HostData/failed_api_calls.txt", "a")
+
     for year, table in product(range(year1, year2), tables):
         if table in filtered_tables:
+            if multi == False:
+                table = start
             # API request to get all zipcode tabulated data for the current year and table
             print(f"{year} - {table}")
             try:
@@ -97,14 +101,16 @@ def get_acs_data(tables, years, start):
 
                     # Write file to the shared directory, and call ETL function
                     path = "/HostData/"
-                    filename = 'ACS_5Y_Estimates_{year}_{table}_{tablename}'.format(year=year,table=table, tablename=tables[table].replace(" ","_").replace(",","").replace("(", "").replace(")","").replace("-","").replace("/","_"))
+                    filename = 'ACS_5Y_Estimates_{year}_{table}'.format(year=year,table=table)
                     filepath = path + filename + ".txt"
                     df.to_csv(filepath, encoding='utf-8', index=False, sep =',')
                     acs_ETL(df, filename, filepath)
+                    if multi == False:
+                        exit
             except Exception as e:
-                failed_apis = open("/HostData/failed_sql.txt", "a")
-                failed_apis.write('\n\n ERROR - %s' % e)
-                failed_apis.close()
+                failed_get_acs_data = open("/HostData/failed_get_acs_data.txt", "a")
+                failed_get_acs_data.write('\n\n ERROR - %s' % e)
+                failed_get_acs_data.close()
 
 def acs_ETL(df, filename, filepath):
 
@@ -132,5 +138,13 @@ def acs_ETL(df, filename, filepath):
 
 if __name__ == "__main__":
     year_range = str(sys.argv[1])
-    start = str(sys.argv[2])
-    find_tables(year_range, start)
+    
+    if len(sys.argv) > 2:
+        start = str(sys.argv[2])
+        if len(sys.argv) > 3:
+            multi = str(sys.argv[3])
+            find_tables(year_range, start, multi)
+        else:
+            find_tables(year_range, start)
+    else:
+        find_tables(year_range)
