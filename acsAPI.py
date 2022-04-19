@@ -10,11 +10,12 @@ import requests
 from lxml import etree
 from io import StringIO
 import pyodbc
+from itertools import product
 
-def find_tables(year_range):
+def find_tables(year_range, start):
     # Send an http request to the census website to collect all available table shells
     html_parser = etree.HTMLParser()
-    web_page = requests.get('https://www.census.gov/programs-surveys/acs/technical-documentation/table-shells.2019.html')
+    web_page = requests.get('https://www.census.gov/programs-surveys/acs/technical-documentation/table-shells.2019.html', timeout=10)
     web_page_html_string = web_page.content.decode("utf-8")
     str_io_obj = StringIO(web_page_html_string)
     dom_tree = etree.parse(str_io_obj, parser=html_parser)
@@ -35,29 +36,31 @@ def find_tables(year_range):
     for i in table_lst:
         if i['Table ID'][0] == "B": 
             tables[i['Table ID']] = i['Table Title']
-    get_acs_data(tables, year_range)
 
-def get_acs_data(tables, years):
+    get_acs_data(tables, year_range, start)
+
+def get_acs_data(tables, years, start):
+    # If the user entered a specific table (optional arg), filter out the one's we've already done. 
+    filtered_tables = list(tables.keys())[list(tables.keys()).index(start):]
+
     # If the user enters a range, assign variables to the beginning and end of the range
     if "-" in years:
-        years.replace(" ","").split("-")
-        year1 = years[0]
-        year2=years[1]
+        years = years.replace(" ","").split("-")
+        year1 = int(years[0])
+        year2=int(years[1])
     # If the user enters a single year, assign year2 to be +1 year from the desired year, so the range function won't error out
     else:
         year1 = int(years)
         year2 = int(years)+1
 
-    # Loop through each year in the users defined range, then each table from the find_tables() function
-
+    # Loop through each year in the users defined range, and each table available in the API
     failed_apis = open("/HostData/failed_api_calls.txt", "a")
-    for year in range(year1, year2):
-        for table in tables:
+    for year, table in product(range(year1, year2), tables):
+        if table in filtered_tables:
             # API request to get all zipcode tabulated data for the current year and table
-            print(f"Sending table data request for table {table} of {year}")
-            response = requests.get(f'https://api.census.gov/data/{year}/acs/acs5?get=NAME,group({table})&for=zip%20code%20tabulation%20area:*&key=62fade369e5f8276f58c592eed6a5a6e19bdbb3a')
+            print(f"{year} - {table}")
+            response = requests.get(f'https://api.census.gov/data/{year}/acs/acs5?get=NAME,group({table})&for=zip%20code%20tabulation%20area:*&key=62fade369e5f8276f58c592eed6a5a6e19bdbb3a',timeout=10)
             if response.status_code != 200:
-                print(f"The API call for {year} {table} failed with http status code != 200")
                 failed_apis.write(f"https://api.census.gov/data/{year}/acs/acs5?get=NAME,group({table})&for=zip%20code%20tabulation%20area:*&key=62fade369e5f8276f58c592eed6a5a6e19bdbb3a\n")
                 pass
             else:
@@ -84,16 +87,16 @@ def get_acs_data(tables, years):
                 # Camel-case all column headers
                 df.columns = df.columns.str.title()
                 df.columns = df.columns.str.replace(" ","")
-                
+
                 # Fill NaN values with nulls
                 df.fillna("",inplace=True)
-                
+
                 # Drop duplicated columns
                 df = df.loc[:,~df.columns.duplicated()]
 
                 # Write file to the shared directory, and call ETL function
                 path = "/HostData/"
-                filename = 'ACS_5Y_Estimates_{year}_{table}_{tablename}'.format(year=year,table=table, tablename=tables[table].replace(" ","_").replace(",","").replace("(", "").replace(")","").replace("-",""))
+                filename = 'ACS_5Y_Estimates_{year}_{table}_{tablename}'.format(year=year,table=table, tablename=tables[table].replace(" ","_").replace(",","").replace("(", "").replace(")","").replace("-","").replace("/","_"))
                 filepath = path + filename + ".txt"
                 df.to_csv(filepath, encoding='utf-8', index=False, sep =',')
                 acs_ETL(df, filename, filepath)
@@ -101,8 +104,6 @@ def get_acs_data(tables, years):
     failed_apis.close
 
 def acs_ETL(df, filename, filepath):
-    #Error logging for failed SQL queries
-    failed_sql = open("/HostData/failed_sql.txt", "a")
 
     # Insert whole DataFrame into MySQL
     conn = pyodbc.connect("DRIVER={ODBC Driver 17 for SQL Server};SERVER=172.17.0.2, 1433;DATABASE=master;UID=sa;PWD=<YourStrong@Passw0rd>", autocommit=True)
@@ -114,22 +115,19 @@ def acs_ETL(df, filename, filepath):
 
     # Execute table creation and bulk insert
     try:
-        print(f"Creating table {filename}")
         cursor.execute(create)
         conn.commit()
 
         bulk_insert = "BULK INSERT " + filename + " FROM '" + filepath + "' WITH (TABLOCK, FIELDTERMINATOR = ',',ROWTERMINATOR = '\n');"
         cursor.execute(bulk_insert)
         conn.commit()
-    
-    except:
-        e = sys.exc_info()[0]
-        failed_sql.write("<p>Error: %s</p>\n" % e)
-        print(f"Error during ETL of {filename}")
 
-    failed_sql.close
-
+    except Exception as e:
+        failed_sql = open("/HostData/failed_sql.txt", "a")
+        failed_sql.write('\n\n ERROR - %s' % e)
+        failed_sql.close()
 
 if __name__ == "__main__":
     year_range = str(sys.argv[1])
-    find_tables(year_range)
+    start = str(sys.argv[2])
+    find_tables(year_range, start)
