@@ -116,7 +116,7 @@ This step is not required, but very helpful so your requests are not blocked or 
     
  6. SSH into the acsapi container, and run the process with your desired arguments:
     ```sh
-    ssh test@localhost -p 2200 -Y -o GlobalKnownHostsFile=/dev/null -o UserKnownHostsFile=/dev/null python3 -u < acsAPI.py - [year] [start="B01001"] [multi=True]
+    ssh test@localhost -p 2200 -Y -o GlobalKnownHostsFile=/dev/null -o UserKnownHostsFile=/dev/null python3 -u < acsAPI.py - [year] [start] [multi]
     ```
     
     available parameters are:
