@@ -108,7 +108,8 @@ def get_acs_data(tables, years, start="B01001", multi=True):
                         exit
             except Exception as e:
                 failed_get_acs_data = open("/HostData/failed_get_acs_data.txt", "a")
-                failed_get_acs_data.write('\n\n ERROR - %s' % e)
+                failed_get_acs_data.write(\n filename)
+                failed_get_acs_data.write('\n ERROR - %s' % e)
                 failed_get_acs_data.close()
 
 def acs_ETL(df, filename, filepath):
