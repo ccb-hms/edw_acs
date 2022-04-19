@@ -71,7 +71,8 @@ This project is built using the following frameworks/libraries.
 <!-- GETTING STARTED -->
 ## Getting Started
 
-[Request a free Census.gov API key](https://api.census.gov/data/key_signup.html) (This step is not required, but very helpful so your requests are not blocked or throttled by the Census API).
+[Request a free Census.gov API key](https://api.census.gov/data/key_signup.html)
+This step is not required, but very helpful so your requests are not blocked or throttled by the Census API.
 
 ### Installation
 
@@ -95,7 +96,8 @@ This project is built using the following frameworks/libraries.
     -v ~/Desktop/DockerETLExample:/HostData \
     -d \
     --rm \
-    mcr.microsoft.com/mssql/server:2019-latest```
+    mcr.microsoft.com/mssql/server:2019-latest
+    ```
 
 5. run the docker acsapi container
    ```sh
@@ -110,11 +112,13 @@ This project is built using the following frameworks/libraries.
         -e 'CONTAINER_USER_USERNAME=test' \
         -e 'CONTAINER_USER_PASSWORD=test' \
         acsapi 
-        ```
+    ```
+    
  6. SSH into the acsapi container, and run the process with your desired arguments:
     ```sh
     ssh test@localhost -p 2200 -Y -o GlobalKnownHostsFile=/dev/null -o UserKnownHostsFile=/dev/null python3 -u < acsAPI.py - [year] [start="B01001"] [multi=True]
     ```
+    
     available parameters are:
     year: _str_ The year you'd like to download data for in the format "YYYY" or a range of years "YYYY-YYYY". ACS 5 year estimates are available from 2009-2020.
     
