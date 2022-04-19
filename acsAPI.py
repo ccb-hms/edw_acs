@@ -3,7 +3,6 @@
 #Project: Exposome Data Warehouse - American Community Survey 5 Year Estimates API Download
 
 import json
-from selectors import EpollSelector
 import pandas as pd
 import sys
 import openpyxl
@@ -127,7 +126,7 @@ def acs_ETL(df, filename, filepath):
         cursor.execute(create)
         conn.commit()
 
-        bulk_insert = "BULK INSERT " + filename + " FROM '" + filepath + "' WITH (TABLOCK, FIELDTERMINATOR = ',',ROWTERMINATOR = '\n');"
+        bulk_insert = "BULK INSERT " + filename + " FROM '" + filepath + "' WITH (TABLOCK, FIRSTROW=2, FIELDTERMINATOR = ',',ROWTERMINATOR = '\n');"
         cursor.execute(bulk_insert)
         conn.commit()
 
