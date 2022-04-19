@@ -10,8 +10,6 @@
   <p align="center">
     A Docker containerized API-based approach to download the Census Bureau's American Community Survey 5 Year Estimates
     <br />
-    <a href="https://github.com/othneildrew/Best-README-Template"><strong>Explore the docs »</strong></a>
-    <br />
     <br />
     <a href="https://github.com/ccb-hms/acsAPI/issues">Report Bug</a>
     ·
