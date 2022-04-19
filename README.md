@@ -78,11 +78,20 @@ This step is not required, but very helpful so your requests are not blocked or 
    git clone https://github.com/ccb-hms/acsAPI.git
    ```
 
+# NPCOMMENT: you are missing #2 in this list, which is ok, because you should 
+# include a step to tell the user to `cd` into the base directory of the newly-cloned 
+# git repo
+
 3. Build the docker image
    ```sh
    docker build -t acsapi .
    ```
-4. run the docker sql1 container
+
+# NPCOMMENT: point the user to Microsoft's registry for additional 
+# details on working with the SQL Server container, and tell them a
+# little bit about the volume they need to bind mount with the `-v` option, 
+# what it is used for, etc.
+4. run the SQL Server container
    ```sh
    docker run \
     -e "ACCEPT_EULA=Y" \
@@ -116,6 +125,7 @@ This step is not required, but very helpful so your requests are not blocked or 
     ssh test@localhost -p 2200 -Y -o GlobalKnownHostsFile=/dev/null -o UserKnownHostsFile=/dev/null python3 -u < acsAPI.py - [year] [start] [multi]
     ```
     
+    # NPCOMMENT: see comments in acsAPI.py and modify these when you make those changes
     **Available parameters are:**
     
     * **year: _str_** The year you'd like to download data for in the format "YYYY" or a range of years "YYYY-YYYY". ACS 5 year estimates are available from 2009-2020.
@@ -124,8 +134,12 @@ This step is not required, but very helpful so your requests are not blocked or 
     
     * **multi: _bool, optional, default=True_** Whether or not you'd like to download a single table, or all tables for the given year. This is helpful if you do not need all tables within a year. If multi=False, only the specified table will be pulled and exported to the mssql server. Default behavior is multi=True, downloading all tables available for the specified year.
 
+# NPCOMMENT: where are these written?  In the bind mounted- volume?
 7. Errors are written to _**failed_get_acs_data.txt**_ (lists errors encountered during the initial pulling of data) and **_failed_sql.txt_** (lists errors that occurred during the SQL ETL process.)
 
+# NPCOMMENT: you should let the user know they will lose the loaded DB when the container is killed.
+# Do some reading here to understand how we can preserve the container with the DB we just created:
+# https://docs.docker.com/engine/reference/commandline/commit/
 8.When the process has finished, kill the docker containers.
   ```sh
   docker kill sql1

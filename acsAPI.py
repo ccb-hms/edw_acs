@@ -114,6 +114,9 @@ def get_acs_data(tables, years, start="B01001", multi=True):
 
 def acs_ETL(df, filename, filepath):
 
+    # NPCOMMENT: You can't always assume the same IP address.  The IP address or DNS name of the SQL 
+    # Server instance should be a parameter to executable.
+
     # Insert whole DataFrame into MySQL
     conn = pyodbc.connect("DRIVER={ODBC Driver 17 for SQL Server};SERVER=172.17.0.2, 1433;DATABASE=master;UID=sa;PWD=<YourStrong@Passw0rd>", autocommit=True)
     cursor = conn.cursor()
@@ -137,6 +140,20 @@ def acs_ETL(df, filename, filepath):
         failed_sql.close()
 
 if __name__ == "__main__":
+    
+    # NPCOMMENT: Let's use argparse to parse command-line arugments
+    # see: https://www.datacamp.com/community/tutorials/argument-parsing-in-python
+    #
+    # Make all of the arguments named in the standard linux / unix style, e.g., 
+    # a long name for the argument preceeded by two dashes "--year".
+    #
+    # Do some additional error checking on the values passed in (e.g. make sure
+    # you are passed a legit value for a year or boolean, etc).
+    #
+    # Write a function that prints a usage statement, and if any errors are 
+    # detected on the invocation, notify the user, print the error statement, 
+    # and exit with non-zero status.
+
     year_range = str(sys.argv[1])
     
     if len(sys.argv) > 2:
