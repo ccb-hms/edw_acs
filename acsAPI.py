@@ -150,6 +150,10 @@ if __name__ == "__main__":
     # Make all of the arguments named in the standard linux / unix style, e.g., 
     # a long name for the argument preceeded by two dashes "--year".
     #
+    # Also, instead of hard-coding the UID and PWD in the connection string, they should
+    # be passed as arguments to the executable along with network address of the DB server 
+    # (see comments above).
+    #
     # Do some additional error checking on the values passed in (e.g. make sure
     # you are passed a legit value for a year or boolean, etc).
     #
