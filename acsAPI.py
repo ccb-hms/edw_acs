@@ -63,7 +63,7 @@ def get_acs_data(tables, years, start="B01001", multi=True):
             # API request to get all zipcode tabulated data for the current year and table
             print(f"{year} - {table}")
             try:
-                response = requests.get(f'https://api.census.gov/data/{year}/acs/acs5?get=NAME,group({table})&for=zip%20code%20tabulation%20area:*&key=62fade369e5f8276f58c592eed6a5a6e19bdbb3a',timeout=10)            
+                response = requests.get(f'https://api.census.gov/data/{year}/acs/acs5?get=NAME,group({table})&for=zip%20code%20tabulation%20area:*&key=62fade369e5f8276f58c592eed6a5a6e19bdbb3a',timeout=100)            
                 if response.status_code != 200:
                     failed_apis.write(f"https://api.census.gov/data/{year}/acs/acs5?get=NAME,group({table})&for=zip%20code%20tabulation%20area:*&key=62fade369e5f8276f58c592eed6a5a6e19bdbb3a\n")
                     pass
@@ -118,7 +118,7 @@ def acs_ETL(df, filename, filepath):
     # Server instance should be a parameter to executable.
 
     # Insert whole DataFrame into MySQL
-    conn = pyodbc.connect("DRIVER={ODBC Driver 17 for SQL Server};SERVER=172.17.0.2, 1433;DATABASE=master;UID=sa;PWD=<YourStrong@Passw0rd>", autocommit=True)
+    conn = pyodbc.connect("DRIVER={ODBC Driver 17 for SQL Server};SERVER=172.17.0.4, 1433;DATABASE=master;UID=sa;PWD=<YourStrong@Passw0rd>", autocommit=True)
     cursor = conn.cursor()
 
     # NPCOMMENT: if the parameter "filename" is actually the table name, we should 
@@ -158,7 +158,10 @@ if __name__ == "__main__":
     # and exit with non-zero status.
     #
     # I don't see you creating the database anywhere here.  We need to do that, otherwise
-    # all of the tables will get created in the master database.
+    # all of the tables will get created in the master database.  Let's name the database 
+    # AmericanCommunitySurvey, and within that database, create a separate schema 
+    # (https://docs.microsoft.com/en-us/sql/relational-databases/security/authentication-access/create-a-database-schema?view=sql-server-ver15)
+    # for each year.
 
     year_range = str(sys.argv[1])
     
