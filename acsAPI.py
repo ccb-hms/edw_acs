@@ -124,6 +124,9 @@ def acs_ETL(df, filename, filepath):
     # NPCOMMENT: if the parameter "filename" is actually the table name, we should 
     # change it to reflect that
 
+    # NPCOMMENT: all of the columns are showing up as nvarchar(max), even the ones
+    # with numeric data
+
     # Create schema, edit text fields to nvarchar
     create = pd.io.sql.get_schema(df, filename)
     create = create.replace("TEXT", "NVARCHAR(MAX)")
