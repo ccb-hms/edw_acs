@@ -166,6 +166,10 @@ if __name__ == "__main__":
     # AmericanCommunitySurvey, and within that database, create a separate schema 
     # (https://docs.microsoft.com/en-us/sql/relational-databases/security/authentication-access/create-a-database-schema?view=sql-server-ver15)
     # for each year.
+    #
+    # For logging, let's use the standard Python logging tools 
+    # https://docs.python.org/3/howto/logging.html
+    # rather than open / write / close files.
 
     year_range = str(sys.argv[1])
     
