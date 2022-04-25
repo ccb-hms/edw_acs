@@ -18,7 +18,7 @@ import logging.config
 import csv
 import os
 
-def find_tables(uid, pwd, ipaddress):
+def find_tables(years, uid, pwd, ipaddress):
     # Connect to the master db and create the db for future use 
     driver = "ODBC Driver 17 for SQL Server"
     conn = pyodbc.connect(f"DRIVER={driver};SERVER={ipaddress};DATABASE=master;UID={uid};PWD={pwd}", autocommit=True)
@@ -30,6 +30,18 @@ def find_tables(uid, pwd, ipaddress):
     
     cursor.execute(drop_create_db)
     conn.commit()
+
+    # Connect to the ACS db and create a fresh schema for each year:
+    year1, year2 = year_split(years)
+    conn = pyodbc.connect(f"DRIVER={driver};SERVER={ipaddress};DATABASE=AmericanCommunitySurvey;UID={uid};PWD={pwd}", autocommit=True)
+    cursor = conn.cursor()
+
+    for year in range(year1, year2):
+        # Create schema
+        year = str(year)
+        schema = f'CREATE SCHEMA ACS_5Y_{year};'
+        cursor.execute(schema)
+        conn.commit()
 
     # Send an http request to the census website to collect all available table shells
     html_parser = etree.HTMLParser()
@@ -78,14 +90,7 @@ def get_acs_data(tables, years, start, alone):
     filtered_tables = list(tables.keys())[list(tables.keys()).index(start):]
 
     # If the user enters a range, assign variables to the beginning and end of the range
-    if "-" in years:
-        years = years.replace(" ","").split("-")
-        year1 = int(years[0])
-        year2=int(years[1])
-    # If the user enters a single year, assign year2 to be +1 year from the desired year, so the range function won't error out
-    else:
-        year1 = int(years)
-        year2 = int(years)+1
+    year1, year2 = year_split(years)
 
     # Loop through each year in the users defined range, and each table available in the API
     for year, table in product(range(year1, year2), tables):
@@ -133,7 +138,7 @@ def get_acs_data(tables, years, start, alone):
                     filename = 'ACS_5Y_Estimates_{year}_{table}'.format(year=year,table=table)
                     filepath = path + filename + ".txt"
                     df.to_csv(filepath, encoding='utf-8', index=False, sep =',')
-                    acs_ETL(df, filename, filepath, uid=args.uid, pwd=args.pwd, ipaddress=args.ipaddress)
+                    acs_ETL(df, filename, filepath, year, table, uid=args.uid, pwd=args.pwd, ipaddress=args.ipaddress)
 
             except Exception as e:
                 logger.warning(e)
@@ -143,7 +148,7 @@ def get_acs_data(tables, years, start, alone):
                 break
 
 
-def acs_ETL(df, tablename, filepath, uid, pwd, ipaddress):
+def acs_ETL(df, tablename, filepath, year, table, uid, pwd, ipaddress):
     # Set up logging
     logger = logging.getLogger('sql_logger')
     
@@ -155,7 +160,7 @@ def acs_ETL(df, tablename, filepath, uid, pwd, ipaddress):
     # NPCOMMENT: all of the columns are showing up as nvarchar(max), even the ones
     # with numeric data
     # Create schema, edit text fields to nvarchar
-    create = pd.io.sql.get_schema(df, tablename)
+    create = pd.io.sql.get_schema(df, f'ACS_5Y_{year}.{table}')
     create = create.replace("TEXT", "NVARCHAR(MAX)")
 
     # Execute table creation and bulk insert
@@ -163,12 +168,28 @@ def acs_ETL(df, tablename, filepath, uid, pwd, ipaddress):
         cursor.execute(create)
         conn.commit()
 
-        bulk_insert = "BULK INSERT " + tablename + " FROM '" + filepath + "' WITH (TABLOCK, FIRSTROW=2, FIELDTERMINATOR = ',',ROWTERMINATOR = '\n');"
+        bulk_insert = "BULK INSERT " + f'[AmericanCommunitySurvey].[dbo].[ACS_5Y_{year}.{table}]' + " FROM '" + filepath + "' WITH (TABLOCK, FIRSTROW=2, FIELDTERMINATOR = ',',ROWTERMINATOR = '\n');"
         cursor.execute(bulk_insert)
         conn.commit()
 
     except Exception as e:
         logger.warning(e)
+
+
+def year_split(years):
+    # If the user enters a range, assign variables to the beginning and end of the range
+    if "-" in years:
+        years = years.replace(" ","").split("-")
+        year1 = int(years[0])
+        year2=int(years[1])
+
+    # If the user enters a single year, assign year2 to be +1 year from the desired year, so the range function won't error out
+    else:
+        year1 = int(years)
+        year2 = int(years)+1
+
+    return(year1, year2)
+
 
 if __name__ == "__main__":
     # Construct the argument parser
@@ -226,7 +247,7 @@ if __name__ == "__main__":
     logging.info(f'Starting data pull for {args.year}')
     
     # Call the first function
-    find_tables(uid=args.uid, pwd=args.pwd, ipaddress=args.ipaddress)
+    find_tables(years=args.year, uid=args.uid, pwd=args.pwd, ipaddress=args.ipaddress)
     
     # When the data pull is complete, write the logs to a csv file for easy reviewing
     with open('/HostData/logging.log', 'r') as logfile, open('/HostData/LOGFILE.csv', 'w') as csvfile:
