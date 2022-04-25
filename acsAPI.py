@@ -52,7 +52,7 @@ def find_tables(uid, pwd, ipaddress):
     cursor.execute(create)
     conn.commit()
 
-    bulk_insert = "BULK INSERT TableLegend FROM '" + '/HostData/Legend.csv' + "' WITH (TABLOCK, FIELDTERMINATOR = ',',ROWTERMINATOR = '\n');"
+    bulk_insert = "BULK INSERT TableLegend FROM '" + '/HostData/Legend.csv' + "' WITH (TABLOCK, FIRSTROW=2, FIELDTERMINATOR = ',',ROWTERMINATOR = '\n');"
     cursor.execute(bulk_insert)
     conn.commit()
 
@@ -72,6 +72,7 @@ def find_tables(uid, pwd, ipaddress):
     get_acs_data(tables, years=args.year, start=args.start, alone=args.alone)
 
 def get_acs_data(tables, years, start, alone):
+    # Set up logging
     logger = logging.getLogger('api_logger')
     # If the user entered a specific table (optional arg), filter out the one's we've already done. 
     filtered_tables = list(tables.keys())[list(tables.keys()).index(start):]
@@ -143,8 +144,9 @@ def get_acs_data(tables, years, start, alone):
 
 
 def acs_ETL(df, tablename, filepath, uid, pwd, ipaddress):
-    # Logging
+    # Set up logging
     logger = logging.getLogger('sql_logger')
+    
     # Connect into DB Server
     driver = "ODBC Driver 17 for SQL Server"
     conn = pyodbc.connect(f"DRIVER={driver};SERVER={ipaddress};DATABASE=AmericanCommunitySurvey;UID={uid};PWD={pwd}", autocommit=True)
@@ -180,15 +182,18 @@ if __name__ == "__main__":
     parser.add_argument('-p', '--pwd', type= str, required=True, action="store", help='Password for the DB server')
     parser.add_argument('-ip', '--ipaddress', type= str, required=True, action="store", help='The network address of the DB server')    
 
+    # Print usage statement
     if len(sys.argv) < 2:
         parser.print_help()
         parser.print_usage()
         parser.exit()
-        
+    
     args = parser.parse_args()
 
+    # Set up logging configs
     logging.basicConfig(filename='/HostData/logging.log',level=logging.INFO, format='%(asctime)s | %(name)s | %(levelname)s | %(message)s')
 
+    # I want to have logging from two separate functions, so here I'm defining the separate handlers and loggers
     logging.config.dictConfig({
         'version': 1,
         'formatters': {
@@ -217,15 +222,20 @@ if __name__ == "__main__":
             }
         }
     })
+    # First line of the logs
     logging.info(f'Starting data pull for {args.year}')
     
+    # Call the first function
     find_tables(uid=args.uid, pwd=args.pwd, ipaddress=args.ipaddress)
     
+    # When the data pull is complete, write the logs to a csv file for easy reviewing
     with open('/HostData/logging.log', 'r') as logfile, open('/HostData/LOGFILE.csv', 'w') as csvfile:
         reader = csv.reader(logfile, delimiter='|')
         writer = csv.writer(csvfile, delimiter=',',)
         writer.writerow(['EventTime', 'Origin', 'Level', 'Message'])
         writer.writerows(reader)
     
+    # Delete the two txt files created by the logging. This step isn't necessary, but I like to clean
+    # up the dir when I'm done.
     os.remove('/HostData/sql.txt')
     os.remove('/HostData/api.txt')
