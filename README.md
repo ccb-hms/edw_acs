@@ -78,15 +78,20 @@ This step is not required, but very helpful so your requests are not blocked or 
    git clone https://github.com/ccb-hms/acsAPI.git
    ```
 
+2. Navigate your terminal to the base directory of the newly cloned git repo.
+   ```cd <dir>
+   ```
+
 3. Build the docker image
    ```sh
    docker build -t acsapi .
    ```
-4. run the docker sql1 container
+
+4. Run the SQL Server container (for more information about Microsoft's SQL server container, view the [registry](https://hub.docker.com/_/microsoft-mssql-server))
    ```sh
    docker run \
     -e "ACCEPT_EULA=Y" \
-    -e "SA_PASSWORD=<YourStrong@Passw0rd>" \
+    -e "SA_PASSWORD=Str0ngp@ssworD" \
     -p 1433:1433 \
     --name sql1 \
     --hostname sql1 \
@@ -95,6 +100,9 @@ This step is not required, but very helpful so your requests are not blocked or 
     --rm \
     mcr.microsoft.com/mssql/server:2019-latest
     ```
+    Here we're using the -v option, through which a new directory is created within Docker’s storage directory on the host machine, and Docker manages that directory’s contents. This way we are able to designate the Desktop/ACS_ETL directory as 'HostData' so whenever /HostData is referenced, Docker will use ACS_ETL on the host machine.
+
+    the -e option sets your environmental variables, which here establishes the password you'll need in step 6.
 
 5. run the docker acsapi container
    ```sh
@@ -113,20 +121,39 @@ This step is not required, but very helpful so your requests are not blocked or 
     
  6. SSH into the acsapi container, and run the process with your desired arguments:
     ```sh
-    ssh test@localhost -p 2200 -Y -o GlobalKnownHostsFile=/dev/null -o UserKnownHostsFile=/dev/null python3 -u < acsAPI.py - [year] [start] [multi]
+    ssh test@localhost -p 2200 -Y -o GlobalKnownHostsFile=/dev/null -o UserKnownHostsFile=/dev/null \ python3 -u < acsAPI.py - "[year] [uid] [pwd] [ipaddress] [alone] [start]"
     ```
-    
+
     **Available parameters are:**
     
-    * **year: _str_** The year you'd like to download data for in the format "YYYY" or a range of years "YYYY-YYYY". ACS 5 year estimates are available from 2009-2020.
+    * **-y, --year: _str_** The year you'd like to download data for in the format "YYYY" or a range of years "YYYY-YYYY". ACS 5 year estimates are available from 2009-2020.
     
-    * **start: _str, optional, default=‘B01001’_** The table you'd like to start with. This is usually helpful when doing a large data pull that is stopped for any reason. If the process stops due to an error, the console will print the last successful table that was pulled. If no _start_ is defined, default behavior is to start at the beginning, downloading all tables.  
-    
-    * **multi: _bool, optional, default=True_** Whether or not you'd like to download a single table, or all tables for the given year. This is helpful if you do not need all tables within a year. If multi=False, only the specified table will be pulled and exported to the mssql server. Default behavior is multi=True, downloading all tables available for the specified year.
+    * **-u, --uid: _str_** The username of the SQL server you're accessing. In the example we're using the default 'sa' uid, but be sure to change this if you are using different login credentials. 
 
-7. Errors are written to _**failed_get_acs_data.txt**_ (lists errors encountered during the initial pulling of data) and **_failed_sql.txt_** (lists errors that occurred during the SQL ETL process.)
+    * **-p, --pwd: _str_** The password you defined in step 4, with the -e option.
 
-8.When the process has finished, kill the docker containers.
+    * **-ip, --ipaddress: _str_** The ip address that the sql1 container is using. You can find this by running  
+    ```sh
+    docker network list
+    ```
+    to find the name of your sql1 network (usuall it is 'bridge') then use
+    ```sh
+    docker network inspect bridge
+    ```
+    to find the ip address.
+
+    * **-a, --alone: optional** Whether or not you'd like to download a single table, or all tables for the given year(s). This is helpful if you do not need all tables within a year. If _--alone_ is used, only the specified table will be pulled and exported to the mssql server. Default behavior is to download all tables available for the specified year.
+
+    * **-s, --start: _str, optional, default=‘B01001’_** The table you'd like to start with. This is usually helpful when doing a large data pull that is stopped for any reason. If the process stops due to an error, the console will print the last successful table that was pulled. If no _start_ is defined, default behavior is to start at the beginning, downloading all tables.  
+
+7. Errors are written to _**logging.log**_ in the directory you bind-mounted in steps 4 and 5 with the -v option. If you prefer a csv formatted view of the logs, it's written to _**LOGFILE.csv**_ in the same aforementioned directory. 
+
+
+# Do some reading here to understand how we can preserve the container with the DB we just created:
+# https://docs.docker.com/engine/reference/commandline/commit/
+8. When the process has finished, you can view the DB with your favorite database tool by logging into the SQL server. 
+
+9. kill the docker containers _🚩🚩🚩IMPORTANT NOTE🚩🚩🚩: You will lose the loaded DB once the containers are killed. To preserve your work, you will need to <instructions here>. Do not kill the containers until you are 100% done working in the DB_.
   ```sh
   docker kill sql1
   docker kill workbench 
