@@ -159,7 +159,6 @@ def acs_ETL(df, tablename, filepath, year, table, uid, pwd, ipaddress):
 
     # Modify the create statement with corrected datatypes
     create = pd.io.sql.get_schema(df, f'ACS_5Y_{year}.{table}')
-
     create = create.replace("TEXT", "NVARCHAR(MAX)")
     create = create.split(",")
     for i in range(1, len(create)-1):
