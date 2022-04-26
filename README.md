@@ -149,7 +149,7 @@ This step is not required, but very helpful so your requests are not blocked or 
 
 7. Errors are written to _**logging.log**_ in the directory you bind-mounted in steps 4 and 5 with the -v option. If you prefer a csv formatted view of the logs, it's written to _**LOGFILE.csv**_ in the same aforementioned directory. 
 
-8. When the process has finished, you can view the DB with your favorite database tool by logging into the SQL server. (To understand how to preserve the container with the DB: https://docs.docker.com/engine/reference/commandline/commit/)
+8. When the process has finished, you can view the DB with your favorite database tool by logging into the SQL server. To understand how to preserve the container with the DB, [view the docs.](https://docs.docker.com/engine/reference/commandline/commit/)
 
 9. kill the docker containers _🚩🚩🚩IMPORTANT NOTE🚩🚩🚩: You will lose the loaded DB once the containers are killed. To preserve your work, you will need to <instructions here>. Do not kill the containers until you are 100% done working in the DB_.
   ```sh
