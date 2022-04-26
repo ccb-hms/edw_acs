@@ -157,11 +157,15 @@ def acs_ETL(df, tablename, filepath, year, table, uid, pwd, ipaddress):
     conn = pyodbc.connect(f"DRIVER={driver};SERVER={ipaddress};DATABASE=AmericanCommunitySurvey;UID={uid};PWD={pwd}", autocommit=True)
     cursor = conn.cursor()
 
-    # NPCOMMENT: all of the columns are showing up as nvarchar(max), even the ones
-    # with numeric data
-    # Create schema, edit text fields to nvarchar
+    # Modify the create statement with corrected datatypes
     create = pd.io.sql.get_schema(df, f'ACS_5Y_{year}.{table}')
     create = create.replace("TEXT", "NVARCHAR(MAX)")
+    create = create.split(",")
+    for i in range(1, len(create)-1):
+        if "Estimate" in create[i] or "Margin" in create[i]:
+            if "Annotation" not in create[i]:
+                create[i] = create[i].replace("NVARCHAR(MAX)", "INT")
+    create = ','.join(create)
 
     # Execute table creation and bulk insert
     try:
