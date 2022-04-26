@@ -79,7 +79,8 @@ This step is not required, but very helpful so your requests are not blocked or 
    ```
 
 2. Navigate your terminal to the base directory of the newly cloned git repo.
-   ```cd <dir>
+   ```sh
+   cd <dir>
    ```
 
 3. Build the docker image
@@ -132,11 +133,11 @@ This step is not required, but very helpful so your requests are not blocked or 
 
     * **-p, --pwd: _str_** The password you defined in step 4, with the -e option.
 
-    * **-ip, --ipaddress: _str_** The ip address that the sql1 container is using. You can find this by running  
+    * **-ip, --ipaddress: _str_** The ip address that the sql1 container is using. You can find this by running the following commands in your terminal:
     ```sh
     docker network list
     ```
-    to find the name of your sql1 network (usuall it is 'bridge') then use
+    to find the name of your sql1 network (usuall it is 'bridge') then use:
     ```sh
     docker network inspect bridge
     ```
@@ -149,8 +150,7 @@ This step is not required, but very helpful so your requests are not blocked or 
 7. Errors are written to _**logging.log**_ in the directory you bind-mounted in steps 4 and 5 with the -v option. If you prefer a csv formatted view of the logs, it's written to _**LOGFILE.csv**_ in the same aforementioned directory. 
 
 
-# Do some reading here to understand how we can preserve the container with the DB we just created:
-# https://docs.docker.com/engine/reference/commandline/commit/
+  Do some reading here to understand how we can preserve the container with the DB we just created: https://docs.docker.com/engine/reference/commandline/commit/
 8. When the process has finished, you can view the DB with your favorite database tool by logging into the SQL server. 
 
 9. kill the docker containers _🚩🚩🚩IMPORTANT NOTE🚩🚩🚩: You will lose the loaded DB once the containers are killed. To preserve your work, you will need to <instructions here>. Do not kill the containers until you are 100% done working in the DB_.
