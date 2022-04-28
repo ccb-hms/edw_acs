@@ -3,6 +3,7 @@
 #Project: Exposome Data Warehouse - American Community Survey 5 Year Estimates API Download
 
 import json
+import traceback
 import pandas as pd
 import sys
 import openpyxl
@@ -19,30 +20,6 @@ import csv
 import os
 
 def find_tables(years, uid, pwd, ipaddress):
-    # Connect to the master db and create the db for future use 
-    driver = "ODBC Driver 17 for SQL Server"
-    conn = pyodbc.connect(f"DRIVER={driver};SERVER={ipaddress};DATABASE=master;UID={uid};PWD={pwd}", autocommit=True)
-    cursor = conn.cursor()
-    drop_create_db = '''USE master;
-                    ALTER DATABASE [AmericanCommunitySurvey] SET SINGLE_USER WITH ROLLBACK IMMEDIATE;
-                    DROP DATABASE [AmericanCommunitySurvey] ;
-                    CREATE DATABASE [AmericanCommunitySurvey] ;'''
-    
-    cursor.execute(drop_create_db)
-    conn.commit()
-
-    # Connect to the ACS db and create a fresh schema for each year:
-    year1, year2 = year_split(years)
-    conn = pyodbc.connect(f"DRIVER={driver};SERVER={ipaddress};DATABASE=AmericanCommunitySurvey;UID={uid};PWD={pwd}", autocommit=True)
-    cursor = conn.cursor()
-
-    for year in range(year1, year2):
-        # Create schema
-        year = str(year)
-        schema = f'CREATE SCHEMA ACS_5Y_{year};'
-        cursor.execute(schema)
-        conn.commit()
-
     # Send an http request to the census website to collect all available table shells
     html_parser = etree.HTMLParser()
     web_page = requests.get('https://www.census.gov/programs-surveys/acs/technical-documentation/table-shells.2019.html', timeout=10)
@@ -51,22 +28,16 @@ def find_tables(years, uid, pwd, ipaddress):
     dom_tree = etree.parse(str_io_obj, parser=html_parser)
     link = dom_tree.xpath('//*[@name="2019 ACS Table List"]/@href')[0]
 
-    #connect to the AmericanCommunitySurvey db
-    conn = pyodbc.connect(f"DRIVER={driver};SERVER={ipaddress};DATABASE=AmericanCommunitySurvey;UID={uid};PWD={pwd}", autocommit=True)
-    cursor = conn.cursor()
-
     # Use pandas(pd) to read the csv file of ACS tablenamesinto a dataframe
     table_lst = pd.read_excel(link, engine='openpyxl')
 
-    # Export the csv to sql as a table legend
+    # Export the csv to sql as a table legend 
     legend = table_lst.to_csv('/HostData/Legend.csv', sep=',', encoding='utf-8', index=False)
     create = pd.io.sql.get_schema(table_lst, 'TableLegend')
-    cursor.execute(create)
-    conn.commit()
+    sql_server(create, 'AmericanCommunitySurvey', ipaddress, uid, pwd)
 
     bulk_insert = "BULK INSERT TableLegend FROM '" + '/HostData/Legend.csv' + "' WITH (TABLOCK, FIRSTROW=2, FIELDTERMINATOR = ',',ROWTERMINATOR = '\n');"
-    cursor.execute(bulk_insert)
-    conn.commit()
+    sql_server(bulk_insert, 'AmericanCommunitySurvey', ipaddress, uid, pwd)
 
     # Transform the table_lst dataframe into a dictionary 
     table_lst = table_lst.to_dict("records")
@@ -74,6 +45,7 @@ def find_tables(years, uid, pwd, ipaddress):
     # The table_lst dictionary is a dict of ALL tables, but we only want the Base detailed tables, 
     # which contain the largest swath of data. These tables begin with a 'B'. Here we are creating
     # an empty dict 'tables' to later populate with only the tables beginning with B.
+    global tables
     tables = {}
 
     # Loop through the larger table list, and append any Base tables to the filtered tables dict
@@ -81,9 +53,33 @@ def find_tables(years, uid, pwd, ipaddress):
         if i['Table ID'][0] == "B": 
             tables[i['Table ID']] = i['Table Title']
 
-    get_acs_data(tables, years=args.year, start=args.start, alone=args.alone)
+def create_schema(years, uid, pwd, ipaddress, geo):
+    # Connect to the ACS db and create a fresh schema for each year:
+    year1, year2 = year_split(years)
 
-def get_acs_data(tables, years, start, alone):
+    for year in range(year1, year2):
+        # Create schema
+        year = str(year)
+        schema = f'CREATE SCHEMA ACS_5Y_{year}_{geo};'
+        sql_server(schema, 'AmericanCommunitySurvey', ipaddress, uid, pwd)
+        
+        # Create crosswalk table for all column names in human-readable format
+        create_crosswalk = "CREATE TABLE "+ f'[AmericanCommunitySurvey].[dbo].[ACS_5Y_{year}_{geo}.Crosswalk_ACS_Columns_{geo}]' + "(TableID NVARCHAR(MAX), ColumnID NVARCHAR(MAX),ColumnName NVARCHAR(MAX),Description NVARCHAR(MAX));"
+        sql_server(create_crosswalk, "AmericanCommunitySurvey", ipaddress, uid, pwd)
+
+
+def create_db(ipaddress, uid, pwd):
+    # If the AmericanCommunitySurvey db has already been created, drop it and re-create it blank
+    drop_create_db = '''USE master;
+                    ALTER DATABASE [AmericanCommunitySurvey] SET SINGLE_USER WITH ROLLBACK IMMEDIATE;
+                    DROP DATABASE [AmericanCommunitySurvey] ;
+                    CREATE DATABASE [AmericanCommunitySurvey] ;'''
+
+    # Call the sql_server function to connect to the db and execute the query
+    sql_server(drop_create_db, 'master', ipaddress, uid, pwd)
+
+
+def get_acs_data(years, start, alone, geo, apikey):
     # Set up logging
     logger = logging.getLogger('api_logger')
     # If the user entered a specific table (optional arg), filter out the one's we've already done. 
@@ -92,73 +88,86 @@ def get_acs_data(tables, years, start, alone):
     # If the user enters a range, assign variables to the beginning and end of the range
     year1, year2 = year_split(years)
 
+    if geo == "ZCTA":
+        api_geo = "zip%20code%20tabulation%20area:*"
+    if geo == "STATE":
+        api_geo = "state:*"
+    if geo == "COUNTY":
+        api_geo = "county:*"
+
     # Loop through each year in the users defined range, and each table available in the API
     for year, table in product(range(year1, year2), tables):
         if table in filtered_tables:
             # API request to get all zipcode tabulated data for the current year and table
-            print(f"{year} - {table}")
+            print(f"{year} - {geo} - {table}")
             try:
-                response = requests.get(f'https://api.census.gov/data/{year}/acs/acs5?get=NAME,group({table})&for=zip%20code%20tabulation%20area:*&key=62fade369e5f8276f58c592eed6a5a6e19bdbb3a',timeout=100)            
+                response = requests.get(f'https://api.census.gov/data/{year}/acs/acs5?get=NAME,group({table})&for={api_geo}&key={apikey}',timeout=100)            
                 if response.status_code != 200:
-                    logger.warning(f'https://api.census.gov/data/{year}/acs/acs5?get=NAME,group({table})&for=zip%20code%20tabulation%20area:*&key=62fade369e5f8276f58c592eed6a5a6e19bdbb3a')
+                    logger.warning(f'https://api.census.gov/data/{year}/acs/acs5?get=NAME,group({table})&for={api_geo}&key={apikey}')
                     pass
                 else:
                     # If the API call returns data, load it as a json, then use pandas to transform the data into a dataframe
                     data = response.json()
                     df = pd.DataFrame(data[1:], columns=data[0])
+                    df = clean(df)
 
                     # This API call is to get the human-readable version of all the columns per table.
-                    response = requests.get(f"https://api.census.gov/data/{year}/acs/acs5/groups/{table}.json")         
-                    cols = response.json()
-                    cols = cols['variables']
-                    ccols = {}
-
-                    # Data manipulation, column renaming, null drops
-                    for i in cols:
-                        ccols[i] = cols[i]['label'].replace("!!"," ")
-
-                    # Renaming columns from serial codes to their corresponding human-readable names    
-                    df.rename(columns = ccols, inplace=True)
-
-                    # Remove "ZCTA " from the first column values. Ex. "ZCTA 90210" --> "90210"
-                    df = df.replace('ZCTA5 ', '', regex=True)
-
-                    # Camel-case all column headers
-                    df.columns = df.columns.str.title()
-                    df.columns = df.columns.str.replace(" ","")
-
-                    # Fill NaN values with nulls
-                    df.fillna("",inplace=True)
-
-                    # Drop duplicated columns
-                    df = df.loc[:,~df.columns.duplicated()]
+                    response = requests.get(f"https://api.census.gov/data/{year}/acs/acs5/groups/{table}.html")         
+                    cols = pd.read_html(response.text)[0]
+                    crosswalk_cols(cols, table, year, geo)
 
                     # Write file to the shared directory, and call ETL function
                     path = "/HostData/"
-                    filename = 'ACS_5Y_Estimates_{year}_{table}'.format(year=year,table=table)
+                    filename = f'ACS_5Y_Estimates_{year}_{geo}_{table}'
                     filepath = path + filename + ".txt"
                     df.to_csv(filepath, encoding='utf-8', index=False, sep =',')
-                    acs_ETL(df, filename, filepath, year, table, uid=args.uid, pwd=args.pwd, ipaddress=args.ipaddress)
+                    
+                    # Call the ETL function
+                    acs_ETL(df, filename, filepath, year, table, geo, uid=args.uid, pwd=args.pwd, ipaddress=args.ipaddress)
 
             except Exception as e:
+                traceback.print_exc()
                 logger.warning(e)
 
             # Check if this is supposed to be a one-off table pull or not
             if not alone:
                 break
 
+def crosswalk_cols(cols, table, year, geo):
+    pd.options.mode.chained_assignment = None  # default='warn'
 
-def acs_ETL(df, tablename, filepath, year, table, uid, pwd, ipaddress):
+    cols = cols[['Name','Label','Concept']]
+    cols.insert(0, 'TableID', table)
+    cols = cols.replace('!!', ' ', regex=True)
+    cols['Label'] = cols['Label'].str.title()
+    cols['Label'] = cols['Label'].str.replace(' ', '', regex=True)
+    cols = cols.rename({'Name': 'ColumnID', 'Label': 'ColumnName', 'Concept':'Description'}, axis=1)
+    cols.drop(cols.tail(1).index,inplace=True)
+
+    # Export the csv to sql as a table legend
+    crosswalk_csv = cols.to_csv('/HostData/crosswalk_cols.csv', sep=',', encoding='utf-8', index=False)
+    bulk_insert = "BULK INSERT " + f'[AmericanCommunitySurvey].[dbo].[ACS_5Y_{year}_{geo}.Crosswalk_ACS_Columns_{geo}]' + "FROM '" + '/HostData/crosswalk_cols.csv' + "' WITH (TABLOCK, FIRSTROW=2, FIELDTERMINATOR = ',',ROWTERMINATOR = '\n');"
+    sql_server(bulk_insert, 'AmericanCommunitySurvey', ipaddress=args.ipaddress, uid=args.uid, pwd=args.pwd) 
+
+def clean(df):
+    # Remove "ZCTA " from the first column values. Ex. "ZCTA 90210" --> "90210"
+    df = df.replace('ZCTA5 ', '', regex=True)   
+
+    # Fill NaN values with nulls
+    df.fillna("",inplace=True)
+
+    # Drop duplicated columns
+    df = df.loc[:,~df.columns.duplicated()]
+
+    return df
+
+
+def acs_ETL(df, tablename, filepath, year, table, geo, uid, pwd, ipaddress):
     # Set up logging
     logger = logging.getLogger('sql_logger')
-    
-    # Connect into DB Server
-    driver = "ODBC Driver 17 for SQL Server"
-    conn = pyodbc.connect(f"DRIVER={driver};SERVER={ipaddress};DATABASE=AmericanCommunitySurvey;UID={uid};PWD={pwd}", autocommit=True)
-    cursor = conn.cursor()
 
     # Modify the create statement with corrected datatypes
-    create = pd.io.sql.get_schema(df, f'ACS_5Y_{year}.{table}')
+    create = pd.io.sql.get_schema(df, f'ACS_5Y_{year}_{geo}.{table}')
     create = create.replace("TEXT", "NVARCHAR(MAX)")
     create = create.split(",")
     for i in range(1, len(create)-1):
@@ -169,14 +178,12 @@ def acs_ETL(df, tablename, filepath, year, table, uid, pwd, ipaddress):
 
     # Execute table creation and bulk insert
     try:
-        cursor.execute(create)
-        conn.commit()
-
-        bulk_insert = "BULK INSERT " + f'[AmericanCommunitySurvey].[dbo].[ACS_5Y_{year}.{table}]' + " FROM '" + filepath + "' WITH (TABLOCK, FIRSTROW=2, FIELDTERMINATOR = ',',ROWTERMINATOR = '\n');"
-        cursor.execute(bulk_insert)
-        conn.commit()
+        sql_server(create, 'AmericanCommunitySurvey', ipaddress, uid, pwd)
+        bulk_insert = "BULK INSERT " + f'[AmericanCommunitySurvey].[dbo].[ACS_5Y_{year}_{geo}.{table}]' + " FROM '" + filepath + "' WITH (TABLOCK, FIRSTROW=2, FIELDTERMINATOR = ',',ROWTERMINATOR = '\n');"
+        sql_server(bulk_insert, 'AmericanCommunitySurvey', ipaddress, uid, pwd)
 
     except Exception as e:
+        traceback.print_exc()
         logger.warning(e)
 
 
@@ -194,18 +201,26 @@ def year_split(years):
 
     return(year1, year2)
 
+def sql_server(query, db, ipaddress, uid, pwd):
+    conn = pyodbc.connect(f"DRIVER=ODBC Driver 17 for SQL Server;SERVER={ipaddress};DATABASE={db};UID={uid};PWD={pwd}", autocommit=True)
+    cursor = conn.cursor()
+    cursor.execute(query)
+    conn.commit()
 
+    
 if __name__ == "__main__":
     # Construct the argument parser
     parser = argparse.ArgumentParser()
 
     # Add the arguments to the parser
-    parser.add_argument('-y', '--year', type= str, required=True, action="store", help='the year (format YYYY) or years (format YYYY-YYYY) you would like to pull data for. This should be a str.')
-    parser.add_argument('-s', '--start', type= str, required=False, action="store", default = 'B01001', help='If you would like to pull a single table, or start the pull from a specific table, define it here as a string, ex. "B01001".')
-    parser.add_argument('-a', '--alone', required=False, action="store_false", help='If you would like to pull a single table, use this option.')
+    parser.add_argument('-y', '--year', type= str, required=True, action="store", help='The year (format "YYYY"|]) or years (format "YYYY-YYYY") to download data for. This should be a str.')
+    parser.add_argument('-s', '--start', type= str, required=False, action="store", default = 'B01001', help='To pull a single table, or start the pull from a specific table, define it here as a string, ex. "B01001".')
+    parser.add_argument('-a', '--alone', required=False, action="store_false", help='This option allows for the selection of a single table to be downloaded.')
     parser.add_argument('-u', '--uid', type= str, required=True, action="store", help='User ID for the DB server')
     parser.add_argument('-p', '--pwd', type= str, required=True, action="store", help='Password for the DB server')
-    parser.add_argument('-ip', '--ipaddress', type= str, required=True, action="store", help='The network address of the DB server')    
+    parser.add_argument('-i', '--ipaddress', type= str, required=True, action="store", help='The network address of the DB server')    
+#    parser.add_argument('-g', '--geo', choices=['zcta', 'state', 'country'], required=True, action="store", help='The geography to be downloaded for.')
+    parser.add_argument('-k', '--apikey', type= str, required=True, action="store", help='The API key to access the Census.gov API. Request a free API key here: https://api.census.gov/data/key_signup.html')    
 
     # Print usage statement
     if len(sys.argv) < 2:
@@ -250,9 +265,20 @@ if __name__ == "__main__":
     # First line of the logs
     logging.info(f'Starting data pull for {args.year}')
     
+    #Create the db
+    create_db(ipaddress=args.ipaddress, uid=args.uid, pwd=args.pwd)
+    
     # Call the first function
     find_tables(years=args.year, uid=args.uid, pwd=args.pwd, ipaddress=args.ipaddress)
-    
+
+    create_schema(years=args.year, uid=args.uid, pwd=args.pwd, ipaddress=args.ipaddress, geo="ZCTA")
+    create_schema(years=args.year, uid=args.uid, pwd=args.pwd, ipaddress=args.ipaddress, geo="STATE")
+    create_schema(years=args.year, uid=args.uid, pwd=args.pwd, ipaddress=args.ipaddress, geo="COUNTY")
+
+    get_acs_data(years=args.year, start=args.start, alone=args.alone, apikey=args.apikey, geo="ZCTA")
+    get_acs_data(years=args.year, start=args.start, alone=args.alone, apikey=args.apikey, geo="STATE")
+    get_acs_data(years=args.year, start=args.start, alone=args.alone, apikey=args.apikey, geo="COUNTY")
+
     # When the data pull is complete, write the logs to a csv file for easy reviewing
     with open('/HostData/logging.log', 'r') as logfile, open('/HostData/LOGFILE.csv', 'w') as csvfile:
         reader = csv.reader(logfile, delimiter='|')
@@ -264,3 +290,4 @@ if __name__ == "__main__":
     # up the dir when I'm done.
     os.remove('/HostData/sql.txt')
     os.remove('/HostData/api.txt')
+
