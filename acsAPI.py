@@ -219,7 +219,6 @@ if __name__ == "__main__":
     parser.add_argument('-u', '--uid', type= str, required=True, action="store", help='User ID for the DB server')
     parser.add_argument('-p', '--pwd', type= str, required=True, action="store", help='Password for the DB server')
     parser.add_argument('-i', '--ipaddress', type= str, required=True, action="store", help='The network address of the DB server')    
-#    parser.add_argument('-g', '--geo', choices=['zcta', 'state', 'country'], required=True, action="store", help='The geography to be downloaded for.')
     parser.add_argument('-k', '--apikey', type= str, required=True, action="store", help='The API key to access the Census.gov API. Request a free API key here: https://api.census.gov/data/key_signup.html')    
 
     # Print usage statement
