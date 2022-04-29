@@ -271,13 +271,12 @@ if __name__ == "__main__":
     # Call the first function
     find_tables(years=args.year, uid=args.uid, pwd=args.pwd, ipaddress=args.ipaddress)
 
-    create_schema(years=args.year, uid=args.uid, pwd=args.pwd, ipaddress=args.ipaddress, geo="ZCTA")
-    create_schema(years=args.year, uid=args.uid, pwd=args.pwd, ipaddress=args.ipaddress, geo="STATE")
-    create_schema(years=args.year, uid=args.uid, pwd=args.pwd, ipaddress=args.ipaddress, geo="COUNTY")
-
-    get_acs_data(years=args.year, start=args.start, alone=args.alone, apikey=args.apikey, geo="ZCTA")
-    get_acs_data(years=args.year, start=args.start, alone=args.alone, apikey=args.apikey, geo="STATE")
-    get_acs_data(years=args.year, start=args.start, alone=args.alone, apikey=args.apikey, geo="COUNTY")
+    geos = ["ZCTA", "STATE", "COUNTY"]
+    
+    for geo in geos:
+        create_schema(years=args.year, uid=args.uid, pwd=args.pwd, ipaddress=args.ipaddress, geo=geo)
+    for geo in geos:
+        get_acs_data(years=args.year, start=args.start, alone=args.alone, apikey=args.apikey, geo=geo)
 
     # When the data pull is complete, write the logs to a csv file for easy reviewing
     with open('/HostData/logging.log', 'r') as logfile, open('/HostData/LOGFILE.csv', 'w') as csvfile:
