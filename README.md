@@ -123,11 +123,14 @@ This step is not required, but very helpful so your requests are not blocked or 
  6. SSH into the acsapi container, and run the process with your desired arguments:
     ```sh
     ssh test@localhost -p 2200 -Y -o GlobalKnownHostsFile=/dev/null -o UserKnownHostsFile=/dev/null \ python3 -u < acsAPI.py - "[year] [uid] [pwd] [ipaddress] [alone] [start]"
+    ssh test@localhost -p 2200 -Y -o GlobalKnownHostsFile=/dev/null -o UserKnownHostsFile=/dev/null \ python3 -u < acsAPI.py - "-y/--year [year] -k/--apikey [apikey] -u/--uid [uid] -p/pwd [pwd] -i/--ipaddress [ipaddress] -a/--alone [alone] -s/--start [start]"
     ```
 
     **Available parameters are:**
     
     * **-y, --year: _str_** The year you'd like to download data for in the format "YYYY" or a range of years "YYYY-YYYY". ACS 5 year estimates are available from 2009-2020.
+
+    * **-k, --apikey: _str_** The API key to access the Census.gov API.
     
     * **-u, --uid: _str_** The username of the SQL server you're accessing. In the example we're using the default 'sa' uid, but be sure to change this if you are using different login credentials. 
 
@@ -137,7 +140,7 @@ This step is not required, but very helpful so your requests are not blocked or 
     ```sh
     docker network list
     ```
-    to find the name of your sql1 network (usuall it is 'bridge') then use:
+    to find the name of your sql1 network (usually it is 'bridge') then use:
     ```sh
     docker network inspect bridge
     ```
@@ -146,6 +149,7 @@ This step is not required, but very helpful so your requests are not blocked or 
     * **-a, --alone: optional** Whether or not you'd like to download a single table, or all tables for the given year(s). This is helpful if you do not need all tables within a year. If _--alone_ is used, only the specified table will be pulled and exported to the mssql server. Default behavior is to download all tables available for the specified year.
 
     * **-s, --start: _str, optional, default=‘B01001’_** The table you'd like to start with. This is usually helpful when doing a large data pull that is stopped for any reason. If the process stops due to an error, the console will print the last successful table that was pulled. If no _start_ is defined, default behavior is to start at the beginning, downloading all tables.  
+  
 
 7. Errors are written to _**logging.log**_ in the directory you bind-mounted in steps 4 and 5 with the -v option. If you prefer a csv formatted view of the logs, it's written to _**LOGFILE.csv**_ in the same aforementioned directory. 
 
