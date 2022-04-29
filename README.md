@@ -148,11 +148,11 @@ This step is not required, but very helpful so your requests are not blocked or 
 
     * **-a, --alone: optional** Whether or not you'd like to download a single table, or all tables for the given year(s). This is helpful if you do not need all tables within a year. If _--alone_ is used, only the specified table will be pulled and exported to the mssql server. Default behavior is to download all tables available for the specified year.
 
-    * **-z, --zcta: optional** Include this option to download all ACS 5 Year estimates by ZCTA, or Zip Code Tabulated Areas. Can be combined with the -st/--state and -c/--county options to download for multiple rollups.
+    * **-z, --zcta: optional** Include this option to download all ACS 5 Year estimates by ZCTA, or Zip Code Tabulated Areas. Can be combined with the -st/--state and -c/--county options to download for multiple rollups. Default behavior downloads for zcta, state, and counties.
 
-    * **-st, --state: optional** Include this option to download all ACS 5 Year estimates by State. Can be combined with the -z/--zcta and -c/--county options to download for multiple rollups.
+    * **-st, --state: optional** Include this option to download all ACS 5 Year estimates by State. Can be combined with the -z/--zcta and -c/--county options to download for multiple rollups. Default behavior downloads for zcta, state, and counties.
 
-    * **-c, --county: optional** Include this option to download all ACS 5 Year estimates by County. Can be combined with the -st/--state and -z/--zcta options to download for multiple rollups.
+    * **-c, --county: optional** Include this option to download all ACS 5 Year estimates by County. Can be combined with the -st/--state and -z/--zcta options to download for multiple rollups. Default behavior downloads for zcta, state, and counties.
 
     * **-s, --start: _str, optional, default=‘B01001’_** The table you'd like to start with. This is usually helpful when doing a large data pull that is stopped for any reason. If the process stops due to an error, the console will print the last successful table that was pulled. If no _start_ is defined, default behavior is to start at the beginning, downloading all tables.  
   
