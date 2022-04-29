@@ -53,7 +53,7 @@ def find_tables(years, uid, pwd, ipaddress):
         if i['Table ID'][0] == "B": 
             tables[i['Table ID']] = i['Table Title']
 
-def create_schema(years, uid, pwd, ipaddress, geo):
+def create_schema(years, uid, pwd, ipaddress, start, alone, apikey, geo):
     # Connect to the ACS db and create a fresh schema for each year:
     year1, year2 = year_split(years)
 
@@ -79,7 +79,7 @@ def create_db(ipaddress, uid, pwd):
     sql_server(drop_create_db, 'master', ipaddress, uid, pwd)
 
 
-def get_acs_data(years, start, alone, geo, apikey):
+def get_acs_data(years, uid, pwd, ipaddress, start, alone, apikey, geo):
     # Set up logging
     logger = logging.getLogger('api_logger')
     # If the user entered a specific table (optional arg), filter out the one's we've already done. 
@@ -94,6 +94,9 @@ def get_acs_data(years, start, alone, geo, apikey):
         api_geo = "state:*"
     if geo == "COUNTY":
         api_geo = "county:*"
+
+    if not alone:
+        filtered_tables = [start]
 
     # Loop through each year in the users defined range, and each table available in the API
     for year, table in product(range(year1, year2), tables):
@@ -129,9 +132,7 @@ def get_acs_data(years, start, alone, geo, apikey):
                 traceback.print_exc()
                 logger.warning(e)
 
-            # Check if this is supposed to be a one-off table pull or not
-            if not alone:
-                break
+
 
 def crosswalk_cols(cols, table, year, geo):
     pd.options.mode.chained_assignment = None  # default='warn'
@@ -220,7 +221,10 @@ if __name__ == "__main__":
     parser.add_argument('-p', '--pwd', type= str, required=True, action="store", help='Password for the DB server')
     parser.add_argument('-i', '--ipaddress', type= str, required=True, action="store", help='The network address of the DB server')    
     parser.add_argument('-k', '--apikey', type= str, required=True, action="store", help='The API key to access the Census.gov API. Request a free API key here: https://api.census.gov/data/key_signup.html')    
-
+    parser.add_argument('-z', '--zcta', required=False, action="store_false", help='This option allows for the selection of the ZCTA geographical rollup.')
+    parser.add_argument('-st', '--state', required=False, action="store_false", help='This option allows for the selection of the State geographical rollup.')
+    parser.add_argument('-c', '--county', required=False, action="store_false", help='This option allows for the selection of the County geographical rollup.')
+    
     # Print usage statement
     if len(sys.argv) < 2:
         parser.print_help()
@@ -270,12 +274,17 @@ if __name__ == "__main__":
     # Call the first function
     find_tables(years=args.year, uid=args.uid, pwd=args.pwd, ipaddress=args.ipaddress)
 
-    geos = ["ZCTA", "STATE", "COUNTY"]
-    
-    for geo in geos:
-        create_schema(years=args.year, uid=args.uid, pwd=args.pwd, ipaddress=args.ipaddress, geo=geo)
-    for geo in geos:
-        get_acs_data(years=args.year, start=args.start, alone=args.alone, apikey=args.apikey, geo=geo)
+    geos = {"ZCTA":args.zcta, "STATE":args.state, "COUNTY":args.county}
+
+    geos = [x for x in geos if geos[x]==False]
+
+    for f, rollup in product([create_schema, get_acs_data], geos):
+        f(years=args.year, uid=args.uid, pwd=args.pwd, ipaddress=args.ipaddress, start=args.start, alone=args.alone, apikey=args.apikey, geo=rollup)
+
+    # for geo in geos:
+    #     create_schema(years=args.year, uid=args.uid, pwd=args.pwd, ipaddress=args.ipaddress, start=args.start, alone=args.alone, geo=geo)
+    # for geo in geos:
+    #     get_acs_data(years=args.year, start=args.start, alone=args.alone, apikey=args.apikey, geo=geo)
 
     # When the data pull is complete, write the logs to a csv file for easy reviewing
     with open('/HostData/logging.log', 'r') as logfile, open('/HostData/LOGFILE.csv', 'w') as csvfile:
@@ -288,4 +297,3 @@ if __name__ == "__main__":
     # up the dir when I'm done.
     os.remove('/HostData/sql.txt')
     os.remove('/HostData/api.txt')
-
