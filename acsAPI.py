@@ -278,6 +278,9 @@ if __name__ == "__main__":
 
     geos = [x for x in geos if geos[x]==False]
 
+    if len(geos) == 0:
+        geos = ["ZCTA", "STATE", "COUNTY"]
+
     for f, rollup in product([create_schema, get_acs_data], geos):
         f(years=args.year, uid=args.uid, pwd=args.pwd, ipaddress=args.ipaddress, start=args.start, alone=args.alone, apikey=args.apikey, geo=rollup)
 
@@ -297,3 +300,4 @@ if __name__ == "__main__":
     # up the dir when I'm done.
     os.remove('/HostData/sql.txt')
     os.remove('/HostData/api.txt')
+
