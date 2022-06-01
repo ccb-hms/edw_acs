@@ -100,11 +100,12 @@ This step is not required, but very helpful so your requests are not blocked or 
     --name sql1 \
     --hostname sql1 \
     -v ~/Desktop/ACS_ETL:/HostData \
+    -v sqldata1:/var/opt/mssql
     -d \
     --rm \
     mcr.microsoft.com/mssql/server:2019-latest
     ```
-    Here we're using the -v option, through which a new directory is created within Docker’s storage directory on the host machine, and Docker manages that directory’s contents. This way we are able to designate the Desktop/ACS_ETL directory as 'HostData' so whenever /HostData is referenced, Docker will use ACS_ETL on the host machine.
+    Here we're using the -v option, through which a new directory is created within Docker’s storage directory on the host machine, and Docker manages that directory’s contents. This way we are able to designate the Desktop/ACS_ETL directory as 'HostData' so whenever /HostData is referenced, Docker will use ACS_ETL on the host machine. We also create a Docker Volume sqldata1 and map that inside the container to /var/opt/mssql. Now during this container’s start up when SQL Server will write its data to /var/opt/mssql which is actually going to be written to the Volume. If we delete this container and replace it, when SQL Server starts up it will see the master database and proceed initializing the system as defined in master. If there are any user databases defined in master and they’re accessible they will be brought online too.
 
     the -e option sets your environmental variables, which here establishes the password you'll need in step 6.
 
@@ -161,13 +162,22 @@ This step is not required, but very helpful so your requests are not blocked or 
 
 7. Errors are written to _**logging.log**_ in the directory you bind-mounted in steps 4 and 5 with the -v option. If you prefer a csv formatted view of the logs, it's written to _**LOGFILE.csv**_ in the same aforementioned directory. 
 
-8. When the process has finished, you can view the DB with your favorite database tool by logging into the SQL server. To understand how to preserve the container with the DB, [view the docs.](https://docs.docker.com/engine/reference/commandline/commit/)
-
-9. kill the docker containers _🚩🚩🚩IMPORTANT NOTE🚩🚩🚩: You will lose the loaded DB once the containers are killed. To preserve your work, you will need to <instructions here>. Do not kill the containers until you are 100% done working in the DB_.
+8. When the process has finished, kill the docker containers using
   ```sh
   docker kill sql1
-  docker kill workbench 
+  docker kill acsapi
   ```
+  then run the following docker command to re-initialize the db in a fresh container.
+```docker run \
+--name 'sql19' \
+-e 'ACCEPT_EULA=Y' -e 'MSSQL_SA_PASSWORD='Str0ngp@ssworD \
+-p 1433:1433 \
+-v sqldata1:/var/opt/mssql \
+-d mcr.microsoft.com/mssql/server:2019-latest
+```
+
+9. you can view the DB with your favorite database tool by logging into SQL server. I like Azure Data Studio, but any remote-accessible db tool will work.
+
   
 <p align="right">(<a href="#top">back to top</a>)</p>
 
