@@ -68,6 +68,9 @@ This project is built using the following frameworks/libraries.
 <!-- GETTING STARTED -->
 ## Getting Started
 
+[Ensure you have Docker installed and running on your machine](https://docs.docker.com/get-docker/)
+If you're not familiar with Docker, don't worry! This is a completely containerized approach so no prior experience is necessary, but it does help if you need to change anything about the build. 
+
 [Request a free Census.gov API key](https://api.census.gov/data/key_signup.html)
 This step is not required, but very helpful so your requests are not blocked or throttled by the Census API.
 
@@ -80,7 +83,7 @@ This step is not required, but very helpful so your requests are not blocked or 
 
 2. Navigate your terminal to the base directory of the newly cloned git repo.
    ```sh
-   cd <dir>
+   cd acsAPI
    ```
 
 3. Build the docker image
