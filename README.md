@@ -122,6 +122,8 @@ This step is not required, but very helpful so your requests are not blocked or 
     --rm \
     mcr.microsoft.com/mssql/server:2019-latest
     ```
+    
+    This appears to work correctly with the Azure SQL Edge container by simply substituting `mcr.microsoft.com/azure-sql-edge:latest` for the image name.
 
     This command will bind mount two directories in the container: `/HostData` and `/var/opt/mssql`. `/var/opt/mssql` is the default location that SQL Server uses to store 
     database files.  By mounting a directory on your host as a data volume in your container, your database files will

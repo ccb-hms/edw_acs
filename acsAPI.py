@@ -2,6 +2,56 @@
 #Agency: Center for Computational Biomedicine (CCB)
 #Project: Exposome Data Warehouse - American Community Survey 5 Year Estimates API Download
 
+# NP-TODO: Thoughts on database layout:
+# 
+# 1. Let's put each year/geography combination's data in a separate schema.  The current naming looks like:
+#
+#   [AmericanCommunitySurvey].[dbo].[ACS_5Y_2019_COUNTY.B01001]
+#   [DATABASE].[SCHEMA].[TABLE]
+#
+#   Let change that to be:
+#
+#   [AmericanCommunitySurvey].[2019_COUNTY].[B01001]
+#   [DATABASE].[SCHEMA].[TABLE]
+#
+#   And let's' avoid using "." in table names.
+# 
+# 2. There is something wrong with how the "NAME" column is getting parsed.  See Teams chat for details / example.
+#
+# 3. All of the columns appear to be typed as nvarchar(max).  Is there anything we can do to enforce strong types?
+#   E.g., use these or something similar
+#
+#   https://api.census.gov/data/2016/acs/acs1/groups/B01001.html
+#   
+#   to tell us what the column types should be?  Worst case it looks like each column can be looked up through
+#   the API such as:
+#   
+#    https://api.census.gov/data/2016/acs/acs1/variables/B01001_001E.json
+#
+# 4. *Crosswalk* tables:
+#   -Change TableID and ColumnId to TableName and ColumnName.  Table ID and column id have a
+#    specific meaning in SQL Server, and it's discordant with what we're talking about here.
+#
+#   -Change ColumnName and Description to Label and Concept in order to be consistent with:
+#    https://api.census.gov/data/2019/acs/acs5/variables.html
+#
+#   -Change table name from Crosswalk to VariableLabel to be consistent with how Census describes these things
+#
+# 5. TabelLegend table
+#   -Let's change Table ID to be consistent with the Crosswalk tables, and call it TableName
+#
+#   -Remove spaces from column names
+#   
+#   -There is an issue with quote characters sometimes being stripped and other times not.  
+#    We don't want them to appear in the SQL table.
+#
+#   -There are other parsing issues going on with this table, sent image via Teams of misordered
+#    and / or broken data.
+#
+#   -We can probably strip out the "Universe: " prefix in every value of the Table Universe column.
+#
+#   -I'm not clear as to how we interpret data in the Year column, but at the least there are some parsing issues here.
+
 import json
 import traceback
 import pandas as pd
