@@ -100,7 +100,7 @@ This step is not required, but very helpful so your requests are not blocked or 
     --name sql1 \
     --hostname sql1 \
     -v ~/Desktop/ACS_ETL:/HostData \
-    -v sqldata1:/var/opt/mssql
+    -v sqldata1:/var/opt/mssql \
     -d \
     --rm \
     mcr.microsoft.com/mssql/server:2019-latest
