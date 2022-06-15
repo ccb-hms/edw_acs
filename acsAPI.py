@@ -19,7 +19,7 @@ import logging.config
 import csv
 import os
 
-def find_tables(years, uid, pwd, ipaddress):
+def find_tables(years, uid, pwd, ipaddress, start, alone, apikey, geo):
     # Send an http request to the census website to collect all available table shells
     html_parser = etree.HTMLParser()
     web_page = requests.get('https://www.census.gov/programs-surveys/acs/technical-documentation/table-shells.2019.html', timeout=10)
@@ -30,14 +30,20 @@ def find_tables(years, uid, pwd, ipaddress):
 
     # Use pandas(pd) to read the csv file of ACS tablenamesinto a dataframe
     table_lst = pd.read_excel(link, engine='openpyxl')
+    table_lst['Table Universe'] = table_lst['Table Universe'].str.replace('Universe: ','', regex=True)
+
+    table_lst = clean(table_lst)
 
     # Export the csv to sql as a table legend 
-    legend = table_lst.to_csv('/HostData/Legend.csv', sep=',', encoding='utf-8', index=False)
-    create = pd.io.sql.get_schema(table_lst, 'TableLegend')
-    sql_server(create, 'AmericanCommunitySurvey', ipaddress, uid, pwd)
+    legend = table_lst.to_csv('/HostData/TableLegend.csv', sep=',', encoding='utf-8', index=False)
 
-    bulk_insert = "BULK INSERT TableLegend FROM '" + '/HostData/Legend.csv' + "' WITH (TABLOCK, FIRSTROW=2, FIELDTERMINATOR = ',',ROWTERMINATOR = '\n');"
-    sql_server(bulk_insert, 'AmericanCommunitySurvey', ipaddress, uid, pwd)
+    year1, year2 = year_split(years)
+
+    for year in range(year1, year2):
+        # Create schema
+        year = str(year)
+        bulk_insert = "BULK INSERT " + f'[AmericanCommunitySurvey].[{year}_{geo}].[TableLegend]' + "FROM '" + '/HostData/TableLegend.csv' + "' WITH (TABLOCK, FIRSTROW=2, FIELDTERMINATOR = ',',ROWTERMINATOR = '\n');"
+        sql_server(bulk_insert, 'AmericanCommunitySurvey', ipaddress=args.ipaddress, uid=args.uid, pwd=args.pwd) 
 
     # Transform the table_lst dataframe into a dictionary 
     table_lst = table_lst.to_dict("records")
@@ -50,8 +56,8 @@ def find_tables(years, uid, pwd, ipaddress):
 
     # Loop through the larger table list, and append any Base tables to the filtered tables dict
     for i in table_lst:
-        if i['Table ID'][0] == "B": 
-            tables[i['Table ID']] = i['Table Title']
+        if i['TableID'][0] == "B": 
+            tables[i['TableID']] = i['TableTitle']
 
 def create_schema(years, uid, pwd, ipaddress, start, alone, apikey, geo):
     # Connect to the ACS db and create a fresh schema for each year:
@@ -60,12 +66,22 @@ def create_schema(years, uid, pwd, ipaddress, start, alone, apikey, geo):
     for year in range(year1, year2):
         # Create schema
         year = str(year)
-        schema = f'CREATE SCHEMA ACS_5Y_{year}_{geo};'
+
+        schema = f'''IF (NOT EXISTS (SELECT * FROM sys.schemas WHERE name = '{year}_{geo}')) 
+        BEGIN
+        EXEC ('CREATE SCHEMA [{year}_{geo}] AUTHORIZATION [dbo]')
+        END'''
+
         sql_server(schema, 'AmericanCommunitySurvey', ipaddress, uid, pwd)
         
-        # Create crosswalk table for all column names in human-readable format
-        create_crosswalk = "CREATE TABLE "+ f'[AmericanCommunitySurvey].[dbo].[ACS_5Y_{year}_{geo}.Crosswalk_ACS_Columns_{geo}]' + "(TableID NVARCHAR(MAX), ColumnID NVARCHAR(MAX),ColumnName NVARCHAR(MAX),Description NVARCHAR(MAX));"
-        sql_server(create_crosswalk, "AmericanCommunitySurvey", ipaddress, uid, pwd)
+        # Create variablelabel table for all column names in human-readable format
+        create_variablelabel = "CREATE TABLE "+ f'[AmericanCommunitySurvey].[{year}_{geo}].[VariableLabels]' + "(TableName NVARCHAR(MAX), ColumnID NVARCHAR(MAX),Label NVARCHAR(MAX),Concept NVARCHAR(MAX),PredicateType NVARCHAR(MAX));"
+        sql_server(create_variablelabel, "AmericanCommunitySurvey", ipaddress, uid, pwd)
+
+        # Create table legends
+        create_legend = "CREATE TABLE "+ f'[AmericanCommunitySurvey].[{year}_{geo}].[TableLegend]' + "(TableName NVARCHAR(MAX), TableTitle NVARCHAR(MAX), TableUniverse NVARCHAR(MAX));"
+        sql_server(create_legend, "AmericanCommunitySurvey", ipaddress, uid, pwd)
+
 
 
 def create_db(ipaddress, uid, pwd):
@@ -117,14 +133,15 @@ def get_acs_data(years, uid, pwd, ipaddress, start, alone, apikey, geo):
                     # This API call is to get the human-readable version of all the columns per table.
                     response = requests.get(f"https://api.census.gov/data/{year}/acs/acs5/groups/{table}.html")         
                     cols = pd.read_html(response.text)[0]
-                    crosswalk_cols(cols, table, year, geo)
+                    variablelabels(cols, table, year, geo)
 
                     # Write file to the shared directory, and call ETL function
                     path = "/HostData/"
                     filename = f'ACS_5Y_Estimates_{year}_{geo}_{table}'
                     filepath = path + filename + ".txt"
-                    df.to_csv(filepath, encoding='utf-8', index=False, sep =',')
-                    
+
+                    df.to_csv(filepath, encoding='utf-8', index=False, sep=',')
+ 
                     # Call the ETL function
                     acs_ETL(df, filename, filepath, year, table, geo, uid=args.uid, pwd=args.pwd, ipaddress=args.ipaddress)
 
@@ -133,21 +150,23 @@ def get_acs_data(years, uid, pwd, ipaddress, start, alone, apikey, geo):
                 logger.warning(e)
 
 
-
-def crosswalk_cols(cols, table, year, geo):
+def variablelabels(cols, table, year, geo):
     pd.options.mode.chained_assignment = None  # default='warn'
 
-    cols = cols[['Name','Label','Concept']]
-    cols.insert(0, 'TableID', table)
+    cols = cols[['Name','Label','Concept','Predicate Type']]
+    cols.insert(0, 'TableName', table)
     cols = cols.replace('!!', ' ', regex=True)
     cols['Label'] = cols['Label'].str.title()
     cols['Label'] = cols['Label'].str.replace(' ', '', regex=True)
-    cols = cols.rename({'Name': 'ColumnID', 'Label': 'ColumnName', 'Concept':'Description'}, axis=1)
+    cols['Predicate Type'] = cols['Predicate Type'].str.replace('string', 'NVARCHAR(MAX)', regex=True)
+    cols['Predicate Type'] = cols['Predicate Type'].str.replace('int', 'INTEGER', regex=True)
+
+    cols = cols.rename({'Name': 'ColumnID', 'Predicate Type':'PredicateType'}, axis=1)
     cols.drop(cols.tail(1).index,inplace=True)
 
     # Export the csv to sql as a table legend
-    crosswalk_csv = cols.to_csv('/HostData/crosswalk_cols.csv', sep=',', encoding='utf-8', index=False)
-    bulk_insert = "BULK INSERT " + f'[AmericanCommunitySurvey].[dbo].[ACS_5Y_{year}_{geo}.Crosswalk_ACS_Columns_{geo}]' + "FROM '" + '/HostData/crosswalk_cols.csv' + "' WITH (TABLOCK, FIRSTROW=2, FIELDTERMINATOR = ',',ROWTERMINATOR = '\n');"
+    variablelabels_csv = cols.to_csv('/HostData/variablelabels.csv', sep=',', encoding='utf-8', index=False)
+    bulk_insert = "BULK INSERT " + f'[AmericanCommunitySurvey].[{year}_{geo}].[VariableLabels]' + "FROM '" + '/HostData/variablelabels.csv' + "' WITH (TABLOCK, FIRSTROW=2, FIELDTERMINATOR = ',',ROWTERMINATOR = '\n');"
     sql_server(bulk_insert, 'AmericanCommunitySurvey', ipaddress=args.ipaddress, uid=args.uid, pwd=args.pwd) 
 
 def clean(df):
@@ -160,6 +179,20 @@ def clean(df):
     # Drop duplicated columns
     df = df.loc[:,~df.columns.duplicated()]
 
+    # Remove spaces from names
+    df.columns = df.columns.str.replace(' ', '')
+
+    # Replace the comma in the NAME column to avoid csv parsing error
+    if 'NAME' in df.columns:
+        df['NAME'] = df['NAME'].str.replace(",", " -", regex=True)
+
+    if 'TableUniverse' in df.columns:
+        df = df.drop(['Year'], axis=1)
+        df['TableUniverse'] = df['TableUniverse'].str.replace('"','', regex=True)
+        df['TableUniverse'] = df['TableUniverse'].str.replace(',','-', regex=True)    
+        df['TableTitle'] = df['TableTitle'].str.replace('"','', regex=True)
+        df['TableTitle'] = df['TableTitle'].str.replace(',','-', regex=True)
+
     return df
 
 
@@ -168,19 +201,27 @@ def acs_ETL(df, tablename, filepath, year, table, geo, uid, pwd, ipaddress):
     logger = logging.getLogger('sql_logger')
 
     # Modify the create statement with corrected datatypes
-    create = pd.io.sql.get_schema(df, f'ACS_5Y_{year}_{geo}.{table}')
-    create = create.replace("TEXT", "NVARCHAR(MAX)")
+    create = pd.io.sql.get_schema(df, f'[AmericanCommunitySurvey].[{year}_{geo}].[{table}]')
+    create = create.replace('"','',2)
+    create = create.replace("TEXT", "|")
+    create = create.replace("|", "NVARCHAR(MAX)",1)
+
     create = create.split(",")
+
     for i in range(1, len(create)-1):
-        if "Estimate" in create[i] or "Margin" in create[i]:
-            if "Annotation" not in create[i]:
-                create[i] = create[i].replace("NVARCHAR(MAX)", "INT")
+        if create[i][-4] == "E" or create[i][-4] == "M":
+            create[i] = create[i].replace("|", "INTEGER")
+        else:
+            create[i] = create[i].replace("|", "NVARCHAR(MAX)")      
+
     create = ','.join(create)
+    create = create.replace("|", "NVARCHAR(MAX)")
 
     # Execute table creation and bulk insert
     try:
         sql_server(create, 'AmericanCommunitySurvey', ipaddress, uid, pwd)
-        bulk_insert = "BULK INSERT " + f'[AmericanCommunitySurvey].[dbo].[ACS_5Y_{year}_{geo}.{table}]' + " FROM '" + filepath + "' WITH (TABLOCK, FIRSTROW=2, FIELDTERMINATOR = ',',ROWTERMINATOR = '\n');"
+        bulk_insert = "BULK INSERT " + f'[AmericanCommunitySurvey].[{year}_{geo}].[{table}]' + " FROM '" + filepath + "' WITH (TABLOCK, FIRSTROW=2, FIELDTERMINATOR = ',',ROWTERMINATOR = '\n');"
+                                       
         sql_server(bulk_insert, 'AmericanCommunitySurvey', ipaddress, uid, pwd)
 
     except Exception as e:
@@ -271,9 +312,6 @@ if __name__ == "__main__":
     #Create the db
     create_db(ipaddress=args.ipaddress, uid=args.uid, pwd=args.pwd)
     
-    # Call the first function
-    find_tables(years=args.year, uid=args.uid, pwd=args.pwd, ipaddress=args.ipaddress)
-
     geos = {"ZCTA":args.zcta, "STATE":args.state, "COUNTY":args.county}
 
     geos = [x for x in geos if geos[x]==False]
@@ -281,13 +319,9 @@ if __name__ == "__main__":
     if len(geos) == 0:
         geos = ["ZCTA", "STATE", "COUNTY"]
 
-    for f, rollup in product([create_schema, get_acs_data], geos):
+    for f, rollup in product([create_schema, find_tables, get_acs_data], geos):
         f(years=args.year, uid=args.uid, pwd=args.pwd, ipaddress=args.ipaddress, start=args.start, alone=args.alone, apikey=args.apikey, geo=rollup)
 
-    # for geo in geos:
-    #     create_schema(years=args.year, uid=args.uid, pwd=args.pwd, ipaddress=args.ipaddress, start=args.start, alone=args.alone, geo=geo)
-    # for geo in geos:
-    #     get_acs_data(years=args.year, start=args.start, alone=args.alone, apikey=args.apikey, geo=geo)
 
     # When the data pull is complete, write the logs to a csv file for easy reviewing
     with open('/HostData/logging.log', 'r') as logfile, open('/HostData/LOGFILE.csv', 'w') as csvfile:
