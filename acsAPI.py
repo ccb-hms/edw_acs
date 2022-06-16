@@ -42,7 +42,7 @@ def find_tables(years, uid, pwd, ipaddress, start, alone, apikey, geo):
     for year in range(year1, year2):
         # Create schema
         year = str(year)
-        bulk_insert = "BULK INSERT " + f'[AmericanCommunitySurvey].[{year}_{geo}].[TableLegend]' + "FROM '" + '/HostData/TableLegend.csv' + "' WITH (TABLOCK, FIRSTROW=2, FIELDTERMINATOR = ',',ROWTERMINATOR = '\n');"
+        bulk_insert = "BULK INSERT " + f'[AmericanCommunitySurvey].[{year}_{geo}].[TableLegend]' + "FROM '" + '/HostData/TableLegend.csv' + "' WITH (TABLOCK, FORMAT = 'CSV', FIRSTROW=2, FIELDTERMINATOR = ',',ROWTERMINATOR = '\n');"
         sql_server(bulk_insert, 'AmericanCommunitySurvey', ipaddress=args.ipaddress, uid=args.uid, pwd=args.pwd) 
 
     # Transform the table_lst dataframe into a dictionary 
@@ -165,8 +165,8 @@ def variablelabels(cols, table, year, geo):
     cols.drop(cols.tail(1).index,inplace=True)
 
     # Export the csv to sql as a table legend
-    variablelabels_csv = cols.to_csv('/HostData/variablelabels.csv', sep=',', encoding='utf-8', index=False)
-    bulk_insert = "BULK INSERT " + f'[AmericanCommunitySurvey].[{year}_{geo}].[VariableLabels]' + "FROM '" + '/HostData/variablelabels.csv' + "' WITH (TABLOCK, FIRSTROW=2, FIELDTERMINATOR = ',',ROWTERMINATOR = '\n');"
+    variablelabels_csv = cols.to_csv('/HostData/variablelabels.txt', sep=',', encoding='utf-8', index=False)
+    bulk_insert = "BULK INSERT " + f'[AmericanCommunitySurvey].[{year}_{geo}].[VariableLabels]' + "FROM '" + '/HostData/variablelabels.csv' + "' WITH (TABLOCK, FORMAT = 'CSV', FIRSTROW=2, FIELDTERMINATOR = ',',ROWTERMINATOR = '\n');"
     sql_server(bulk_insert, 'AmericanCommunitySurvey', ipaddress=args.ipaddress, uid=args.uid, pwd=args.pwd) 
 
 def clean(df):
@@ -181,10 +181,6 @@ def clean(df):
 
     # Remove spaces from names
     df.columns = df.columns.str.replace(' ', '')
-
-    # Replace the comma in the NAME column to avoid csv parsing error
-    if 'NAME' in df.columns:
-        df['NAME'] = df['NAME'].str.replace(",", " -", regex=True)
 
     if 'TableUniverse' in df.columns:
         df = df.drop(['Year'], axis=1)
@@ -220,7 +216,7 @@ def acs_ETL(df, tablename, filepath, year, table, geo, uid, pwd, ipaddress):
     # Execute table creation and bulk insert
     try:
         sql_server(create, 'AmericanCommunitySurvey', ipaddress, uid, pwd)
-        bulk_insert = "BULK INSERT " + f'[AmericanCommunitySurvey].[{year}_{geo}].[{table}]' + " FROM '" + filepath + "' WITH (TABLOCK, FIRSTROW=2, FIELDTERMINATOR = ',',ROWTERMINATOR = '\n');"
+        bulk_insert = "BULK INSERT " + f'[AmericanCommunitySurvey].[{year}_{geo}].[{table}]' + " FROM '" + filepath + "' WITH (TABLOCK, FORMAT = 'CSV', FIRSTROW=2, FIELDTERMINATOR = ',',ROWTERMINATOR = '\n');"
                                        
         sql_server(bulk_insert, 'AmericanCommunitySurvey', ipaddress, uid, pwd)
 
@@ -334,4 +330,3 @@ if __name__ == "__main__":
     # up the dir when I'm done.
     os.remove('/HostData/sql.txt')
     os.remove('/HostData/api.txt')
-
