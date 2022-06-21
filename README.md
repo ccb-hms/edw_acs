@@ -55,31 +55,31 @@ This project creates two Docker containers, sql1 and acsAPI. The sql1 Docker con
 The final database structure is American Community Survey --> {year}_{geographical rollup} --> {tablename}
 
 To further illustrate: If you are parsing multiple years from 2017-2018, and all geographical rollups, your final db schema will look like:
--American Community Survey
-    -2017_COUNTY
-        -B01001
-        -B01002
-        -B01003
-    -2017_ZCTA
-        -B01001
-        -B01002
-        -B01003     
-    -2017_STATE
-        -B01001
-        -B01002
-        -B01003   
-    -2018_COUNTY
-        -B01001
-        -B01002
-        -B01003
-    -2018_ZCTA
-        -B01001
-        -B01002
-        -B01003     
-    -2018_STATE
-        -B01001
-        -B01002
-        -B01003
+ - American Community Survey
+   - 2017_COUNTY
+     - B01001
+     - B01002
+     - B01003
+   - 2017_ZCTA
+     - B01001
+     - B01002
+     - B01003     
+   - 2017_STATE
+     - B01001
+     - B01002
+     - B01003   
+   - 2018_COUNTY
+     - B01001
+     - B01002
+     - B01003
+   - 2018_ZCTA
+     - B01001
+     - B01002
+     - B01003     
+   - 2018_STATE
+     - B01001
+     - B01002
+     - B01003
 
 
 <p align="right">(<a href="#top">back to top</a>)</p>
