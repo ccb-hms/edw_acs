@@ -180,13 +180,13 @@ This step is REQUIRED, so your requests are not blocked or throttled by the Cens
     * **-p, --pwd: _str_** The password you defined in step 4, with the -e option.
 
     * **-ip, --ipaddress: _str_** The ip address that the sql1 container is using. You can find this by running the following commands in your terminal:
-    ```sh
-    docker network list
-    ```
+      ```sh
+      docker network list
+      ```
     to find the name of your sql1 network (usually it is 'bridge') then use:
-    ```sh
-    docker network inspect bridge
-    ```
+      ```sh
+      docker network inspect bridge
+      ```
     to find the ip address.
 
     * **-a, --alone: optional** Whether or not you'd like to download a single table, or all tables for the given year(s). This is helpful if you do not need all tables within a year. If _--alone_ is used, only the specified table will be pulled and exported to the mssql server. Default behavior is to download all tables available for the specified year. Use this option by including _--alone_, to not use this option simply omit _--alone_ from your SSH invocation (see example below). 
@@ -201,10 +201,15 @@ This step is REQUIRED, so your requests are not blocked or throttled by the Cens
 
     * **-cl, --cleanup: optional** Whether or not you'd like to save copies of the csv tables to your `/HostData` directory. Use this option by including _--cleanup_, to not use this option simply omit _--cleanup_ from your SSH invocation. 
 
-  Example SSH invocation:
+    Example SSH invocation:
+
+    ```
     ssh test@localhost -p 2200 -Y -o GlobalKnownHostsFile=/dev/null -o UserKnownHostsFile=/dev/null \ python3 -u < acsAPI.py - "--year 2020 --uid sa --pwd Str0ngp@ssworD --ipaddress 172.17.0.2 --apikey 518mAs0401rm17Mtlo987654ert --alone --start "B01001" --county --cleanup"
+    ```
 
     This invocation does the following:
+
+    ```
     * --year 2020 : Collects data from 2020
     * --uid sa : Default system admin uid for mssql
     * --pwd Str0ngp@ssworD : This password was set up in step 4 (-e "SA_PASSWORD=Str0ngp@ssworD" )
@@ -214,10 +219,11 @@ This step is REQUIRED, so your requests are not blocked or throttled by the Cens
     * --start "B01001": Collect table B01001.
     * --county : Only the "county" geographical rollup will be collected. 
     * --cleanup : Do not save a local copy of each scraped table.
+    ```
 
     Results : Returns county level data from 2020 for table B01001.
 
-  Notes: This process takes appx. 30 HOURS for all tables, all geographical rollups, across all available years. 
+  **Note:** This process takes appx. 30 HOURS for all tables, all geographical rollups, across all available years. 
 
 
 7. Errors are written to _**logging.log**_ in the directory you bind-mounted in steps 4 and 5 with the -v option. If you prefer a csv formatted view of the logs, it's written to _**LOGFILE.csv**_ in the `/HostData` directory you defined in steps 4 and 5. 
@@ -272,7 +278,6 @@ Don't forget to give the project a star! Thanks again!
 <p align="right">(<a href="#top">back to top</a>)</p>
 
 
-
 <!-- LICENSE -->
 ## License
 
@@ -289,4 +294,4 @@ Sam Pullman - samantha_pullman@hms.harvard.edu
 
 <p align="right">(<a href="#top">back to top</a>)</p>
 
-
+# at the vet coding nbd
