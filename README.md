@@ -107,6 +107,8 @@ with Docker is not a necessarry prerequisite to running this code, but will be h
 [Request a free Census.gov API key](https://api.census.gov/data/key_signup.html)
 This step is REQUIRED, so your requests are not blocked or throttled by the Census API.
 
+**Note:** This process takes appx. 30 HOURS for all tables, all geographical rollups, across all available years. 
+
 ### Installation
 
 1. Clone the repo into the directory of your choosing.
@@ -223,25 +225,23 @@ This step is REQUIRED, so your requests are not blocked or throttled by the Cens
 
     Results : Returns county level data from 2020 for table B01001.
 
-  **Note:** This process takes appx. 30 HOURS for all tables, all geographical rollups, across all available years. 
-
 
 7. Errors are written to _**logging.log**_ in the directory you bind-mounted in steps 4 and 5 with the -v option. If you prefer a csv formatted view of the logs, it's written to _**LOGFILE.csv**_ in the `/HostData` directory you defined in steps 4 and 5. 
 
 
 8. When the process has finished, kill the docker containers using
-  ```sh
-  docker kill sql1
-  docker kill acsapi
-  ```
-  then run the following docker command to re-initialize the db in a fresh container.
-  ```docker run \
-  --name 'sql19' \
-  -e 'ACCEPT_EULA=Y' -e 'MSSQL_SA_PASSWORD='Str0ngp@ssworD \
-  -p 1433:1433 \
-  -v sqldata1:/var/opt/mssql \
-  -d mcr.microsoft.com/mssql/server:2019-latest
-  ```
+      ```sh
+      docker kill sql1
+      docker kill acsapi
+      ```
+    then run the following docker command to re-initialize the db in a fresh container.
+      ```docker run \
+      --name 'sql19' \
+      -e 'ACCEPT_EULA=Y' -e 'MSSQL_SA_PASSWORD='Str0ngp@ssworD \
+      -p 1433:1433 \
+      -v sqldata1:/var/opt/mssql \
+      -d mcr.microsoft.com/mssql/server:2019-latest
+      ```
 
 9. you can view the DB with your favorite database tool by logging into SQL server. I like Azure Data Studio, but any remote-accessible db tool will work.
 
