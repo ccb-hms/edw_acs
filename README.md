@@ -50,16 +50,37 @@ This project was created as a way to efficiently download large datasets from th
 
 The American Community Survey (ACS) is an ongoing survey that provides data every year, giving communities the current information they need to plan investments and services. The ACS covers a broad range of topics about social, economic, demographic, and housing characteristics of the U.S. population. The 5-year estimates from the ACS are "period" estimates that represent data collected over a period of time. The primary advantage of using multiyear estimates is the increased statistical reliability of the data for less populated areas and small population subgroups. The 5-year estimates are available for all geographies down to the block group level. Unlike the 1-year estimates, geographies do not have to meet a particular population threshold in order to be published. 
 
-<!-- 
-  NP-TODO: Can you try to give an overview of how things are setup?  I.e., two Dockers, 
-  one where SQL Server runs, another where the Python code runs, Python pulls data from 
-  census.gov, writes to a shared filesystem and requests SQL Server to BULK INSERT.
-  
-  Maybe also some explanation of what the database looks like in terms of schema when 
-  all is said and done.
+This project creates two Docker containers, sql1 and acsAPI. The sql1 Docker container is running an isntance of SQL Server. The acsAPI container is responsible for pulling the data from the census.gov site via python's requests module, writes the resulting data to a shared filesystem, then utlizes python's pyodbc module to bulk insert the data to SQL Server.
 
-  Might also be useful to point to a data dictionary on the Census site.
--->
+The final database structure is American Community Survey --> {year}_{geographical rollup} --> {tablename}
+
+To further illustrate: If you are parsing multiple years from 2017-2018, and all geographical rollups, your final db schema will look like:
+-American Community Survey
+    -2017_COUNTY
+        -B01001
+        -B01002
+        -B01003
+    -2017_ZCTA
+        -B01001
+        -B01002
+        -B01003     
+    -2017_STATE
+        -B01001
+        -B01002
+        -B01003   
+    -2018_COUNTY
+        -B01001
+        -B01002
+        -B01003
+    -2018_ZCTA
+        -B01001
+        -B01002
+        -B01003     
+    -2018_STATE
+        -B01001
+        -B01002
+        -B01003
+
 
 <p align="right">(<a href="#top">back to top</a>)</p>
 
@@ -83,12 +104,8 @@ This project is built using the following frameworks/libraries.
 If you're not familiar with Docker, you can find a tutorial [here](https://docs.docker.com/get-started/)! Experience
 with Docker is not a necessarry prerequisite to running this code, but will be helpful if you would like to make modifications. 
 
-<!-- 
-  NP-TODO: explain behavior when no API key is included in invocation of the program, or
-  just tell the user they have to get a key (I might slightly prefer this solution).
--->
 [Request a free Census.gov API key](https://api.census.gov/data/key_signup.html)
-This step is not required, but very helpful so your requests are not blocked or throttled by the Census API.
+This step is REQUIRED, so your requests are not blocked or throttled by the Census API.
 
 ### Installation
 
@@ -120,28 +137,13 @@ This step is not required, but very helpful so your requests are not blocked or 
     -v sqldata1:/var/opt/mssql \
     -d \
     --rm \
-    mcr.microsoft.com/mssql/server:2019-latest
+    mcr.microsoft.com/azure-sql-edge:latest
     ```
     
     This appears to work correctly with the Azure SQL Edge container by simply substituting `mcr.microsoft.com/azure-sql-edge:latest` for the image name.
 
     This command will bind mount two directories in the container: `/HostData` and `/var/opt/mssql`. `/var/opt/mssql` is the default location that SQL Server uses to store 
-    database files.  By mounting a directory on your host as a data volume in your container, your database files will
-    be persisted for future use even after the container is deleted.  See [here](https://docs.microsoft.com/en-us/sql/linux/sql-server-linux-docker-container-configure?view=sql-server-ver16&pivots=cs1-bash) for more details.
-
-    `/HostData` will be used for FIXME!!!
-
-    <!---
-      NP-TODO: The old text here was a little wordy, I tried to tighten it up a little bit.
-      
-      Explain what the directories are used for, and / or what files end up in them.  I took a shot at the SQL 
-      data directory, see what you think and write some more about the other one.  At this point (approximating a 
-      naive user as best I can) I'm confused as to which directory on my host I should mount to /HostData.  Is is the root 
-      of the Git repo?  A place for temp files?  Something else?   HELP!!!
-
-      After running, it looks like /HostData ends up with intermediate files that get BULK inserted.  We might want to
-      offer the user an option to clean these up as they are loaded so we don't consume a large amount of extra disk space.
-    --->
+    database files.  By mounting a directory on your host (`/HostData`) as a data volume in your container, your database files will be persisted for future use even after the container is deleted.  See [here](https://docs.microsoft.com/en-us/sql/linux/sql-server-linux-docker-container-configure?view=sql-server-ver16&pivots=cs1-bash) for more details.
 
     the -e option sets environment variables inside the container that are used to configure SQL Server.
 
@@ -153,24 +155,16 @@ This step is not required, but very helpful so your requests are not blocked or 
         --name acsapi \
         -d \
         -v ~/Desktop/ACS_ETL:/HostData \
-        -p 8787:8787 \
         -p 2200:22 \
         -e 'CONTAINER_USER_USERNAME=test' \
         -e 'CONTAINER_USER_PASSWORD=test' \
         acsapi 
     ```
 
-    <!---
-      NP-TODO: Try to give a little over-view of exactly what's happening here (ssh listening
-      on port 22 in the container, forwarded to 2200 on host; setting up a user/password inside the container)
-
-      We don't need TCP 8787 forwarded for this application, it is the endpoint for RStudio server.
-      
-      Can you explain what the mounted directory will be used for so the user 
-      can decide what host directory to use?
-    --->
+    This command mounts `/HostData` as a data volume in your container, such that your database files will be persisted for future use even after the container is deleted. You *MUST* use the same location for `/HostData` as in step 4. The -p option allows for ssh listening on port 22 in the container, and forwarded to 2200 on the host. Meaning whenever something occurs on port 22 in the container, is mimicked on port 2200 on the host. The -e option allows for the establishment of username and password variables. 
+  
     
- 6. Run the process inside the container over SSH with your desired arguments:
+ 6. Run the process inside the container over SSH with your desired arguments, entering 'yes' and your password ('test' if using the example above) when prompted:
     ```sh
     ssh test@localhost -p 2200 -Y -o GlobalKnownHostsFile=/dev/null -o UserKnownHostsFile=/dev/null \ python3 -u < acsAPI.py - "-y/--year [year] -k/--apikey [apikey] -u/--uid [uid] -p/--pwd [pwd] -i/--ipaddress [ipaddress] -a/--alone [alone] -s/--start [start] -z/--zcta [zcta] -st/--state [state] -c/--county [county]"
     ```
@@ -195,7 +189,7 @@ This step is not required, but very helpful so your requests are not blocked or 
     ```
     to find the ip address.
 
-    * **-a, --alone: optional** Whether or not you'd like to download a single table, or all tables for the given year(s). This is helpful if you do not need all tables within a year. If _--alone_ is used, only the specified table will be pulled and exported to the mssql server. Default behavior is to download all tables available for the specified year.
+    * **-a, --alone: optional** Whether or not you'd like to download a single table, or all tables for the given year(s). This is helpful if you do not need all tables within a year. If _--alone_ is used, only the specified table will be pulled and exported to the mssql server. Default behavior is to download all tables available for the specified year. Use this option by including _--alone_, to not use this option simply omit _--alone_ from your SSH invocation (see example below). 
 
     * **-z, --zcta: optional** Include this option to download all ACS 5 Year estimates by ZCTA, or Zip Code Tabulated Areas. Can be combined with the -st/--state and -c/--county options to download for multiple rollups. Default behavior downloads for zcta, state, and counties.
 
@@ -203,34 +197,30 @@ This step is not required, but very helpful so your requests are not blocked or 
 
     * **-c, --county: optional** Include this option to download all ACS 5 Year estimates by County. Can be combined with the -st/--state and -z/--zcta options to download for multiple rollups. Default behavior downloads for zcta, state, and counties.
 
-    * **-s, --start: _str, optional, default=‘B01001’_** The table you'd like to start with. This is usually helpful when doing a large data pull that is stopped for any reason. If the process stops due to an error, the console will print the last successful table that was pulled. If no _start_ is defined, default behavior is to start at the beginning, downloading all tables.  
-<!-- 
-  NP-TODO: 
+    * **-s, --start: _str, optional, default=‘B01001’_** The table you'd like to start with. This is usually helpful when doing a large data pull that is stopped for any reason. If the process stops due to an error, the console will print the last successful table that was pulled. If no _start_ is defined, default behavior is to start at the beginning, downloading all tables. 
 
-  Say a few words about the SSH invocation (eg. username from acsapi docker container command)
-  
-  Comments about individual parameters:
-      
-      --alone: should the value be true / false?  not clear from comments. I specified "--alone alone"
-      and got this error:
-        -: error: unrecognized arguments: alone
-      How do I specify a single file?  Is it the file named by --start?
+    * **-cl, --cleanup: optional** Whether or not you'd like to save copies of the csv tables to your `/HostData` directory. Use this option by including _--cleanup_, to not use this option simply omit _--cleanup_ from your SSH invocation. 
 
-      --start: let's try to be more explicit about what happens here on re-run. Does the DB get dropped
-      and re-created?  Looks like maybe it does: I ran once to pull 2017 at the ZCTA level, then again 
-      to pull 2019 at county level, and the 2017 ZCTA tables were gone.
-  
-  The code blocks under the IP address section appear to be out-dented too far.  Minor issue, but strange.
+  Example SSH invocation:
+    ssh test@localhost -p 2200 -Y -o GlobalKnownHostsFile=/dev/null -o UserKnownHostsFile=/dev/null \ python3 -u < acsAPI.py - "--year 2020 --uid sa --pwd Str0ngp@ssworD --ipaddress 172.17.0.2 --apikey 518mAs0401rm17Mtlo987654ert --alone --start "B01001" --county --cleanup"
 
-  Finally: Can you try to give the user some idea of how long they should expect the process to
-  take, and what the output (if any) should look like?  We should at least let them know that 
-  they will be asked to respond "yes" and enter the contianer user's password at the SSH prompt.
--->
+    This invocation does the following:
+    * --year 2020 : Collects data from 2020
+    * --uid sa : Default system admin uid for mssql
+    * --pwd Str0ngp@ssworD : This password was set up in step 4 (-e "SA_PASSWORD=Str0ngp@ssworD" )
+    * --ipaddress 172.17.0.2 : This is the ip address the sql1 container is using
+    * --apikey 518mAs0401rm17Mtlo987654ert : Replace this with your unique API key retrieved from the [Census.gov API key request form](https://api.census.gov/data/key_signup.html)
+    * --alone : Only the table defined by "start" will be collected.
+    * --start "B01001": Collect table B01001.
+    * --county : Only the "county" geographical rollup will be collected. 
+    * --cleanup : Do not save a local copy of each scraped table.
 
-7. Errors are written to _**logging.log**_ in the directory you bind-mounted in steps 4 and 5 with the -v option. If you prefer a csv formatted view of the logs, it's written to _**LOGFILE.csv**_ in the same aforementioned directory. 
-<!-- 
-  NP-TODO: Which directory, /HostData?
--->
+    Results : Returns county level data from 2020 for table B01001.
+
+  Notes: This process takes appx. 30 HOURS for all tables, all geographical rollups, across all available years. 
+
+
+7. Errors are written to _**logging.log**_ in the directory you bind-mounted in steps 4 and 5 with the -v option. If you prefer a csv formatted view of the logs, it's written to _**LOGFILE.csv**_ in the `/HostData` directory you defined in steps 4 and 5. 
 
 
 8. When the process has finished, kill the docker containers using
@@ -239,16 +229,13 @@ This step is not required, but very helpful so your requests are not blocked or 
   docker kill acsapi
   ```
   then run the following docker command to re-initialize the db in a fresh container.
-```docker run \
---name 'sql19' \
--e 'ACCEPT_EULA=Y' -e 'MSSQL_SA_PASSWORD='Str0ngp@ssworD \
--p 1433:1433 \
--v sqldata1:/var/opt/mssql \
--d mcr.microsoft.com/mssql/server:2019-latest
-```
-<!-- 
-  NP-TODO: Code block again looks out-dented too far.
--->
+  ```docker run \
+  --name 'sql19' \
+  -e 'ACCEPT_EULA=Y' -e 'MSSQL_SA_PASSWORD='Str0ngp@ssworD \
+  -p 1433:1433 \
+  -v sqldata1:/var/opt/mssql \
+  -d mcr.microsoft.com/mssql/server:2019-latest
+  ```
 
 9. you can view the DB with your favorite database tool by logging into SQL server. I like Azure Data Studio, but any remote-accessible db tool will work.
 
