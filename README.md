@@ -215,7 +215,6 @@ This step is REQUIRED, so your requests are not blocked or throttled by the Cens
 
     This example returns county level data from 2020 for table B01001. The breakdown of each option is below:
 
-    ```
     * --year 2020 : Collects data from 2020
     * --uid sa : Default system admin uid for mssql
     * --pwd Str0ngp@ssworD : This password was set up in step 4 (-e "SA_PASSWORD=Str0ngp@ssworD" )
@@ -225,7 +224,6 @@ This step is REQUIRED, so your requests are not blocked or throttled by the Cens
     * --start "B01001": Collect table B01001.
     * --county : Only the "county" geographical rollup will be collected. 
     * --cleanup : Do not save a local copy of each scraped table.
-    ```
 
 7. Errors are written to _**logging.log**_ in the directory you bind-mounted in steps 4 and 5 with the -v option. If you prefer a csv formatted view of the logs, it's written to _**LOGFILE.csv**_ in the `/HostData` directory you defined in steps 4 and 5. 
 
