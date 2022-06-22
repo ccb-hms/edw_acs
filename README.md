@@ -163,7 +163,11 @@ This step is REQUIRED, so your requests are not blocked or throttled by the Cens
         acsapi 
     ```
 
-    This command mounts `/HostData` as a data volume in your container, such that your database files will be persisted for future use even after the container is deleted. You *MUST* use the same location for `/HostData` as in step 4. The -p option allows for ssh listening on port 22 in the container, and forwarded to 2200 on the host. Meaning whenever something occurs on port 22 in the container, is mimicked on port 2200 on the host. The -e option allows for the establishment of username and password variables. 
+    This command mounts `/HostData` as a data volume in your container, such that your database files will be persisted for future use even after the container is deleted. You *MUST* use the same location for `/HostData` as in step 4. 
+    
+    The -p option allows for ssh listening on port 22 in the container, and forwarded to 2200 on the host. Meaning whenever something occurs on port 22 in the container, is mimicked on port 2200 on the host. 
+    
+    The -e option allows for the establishment of username and password variables. 
   
     
  6. Run the process inside the container over SSH with your desired arguments, entering 'yes' and your password ('test' if using the example above) when prompted:
@@ -185,11 +189,11 @@ This step is REQUIRED, so your requests are not blocked or throttled by the Cens
       ```sh
       docker network list
       ```
-    to find the name of your sql1 network (usually it is 'bridge') then use:
+      to find the name of your sql1 network (usually it is 'bridge') then use:
       ```sh
       docker network inspect bridge
       ```
-    to find the ip address.
+      to find the ip address.
 
     * **-a, --alone: optional** Whether or not you'd like to download a single table, or all tables for the given year(s). This is helpful if you do not need all tables within a year. If _--alone_ is used, only the specified table will be pulled and exported to the mssql server. Default behavior is to download all tables available for the specified year. Use this option by including _--alone_, to not use this option simply omit _--alone_ from your SSH invocation (see example below). 
 
@@ -293,5 +297,3 @@ Distributed under the HMS CCB License. See `LICENSE.txt` for more information.
 Sam Pullman - samantha_pullman@hms.harvard.edu
 
 <p align="right">(<a href="#top">back to top</a>)</p>
-
-# at the vet coding nbd
