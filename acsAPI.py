@@ -19,7 +19,7 @@ import logging.config
 import csv
 import os
 
-def find_tables(years, uid, pwd, ipaddress, start, alone, apikey, geo):
+def find_tables(years, uid, pwd, ipaddress, start, alone, apikey, geo, cleanup):
     # Send an http request to the census website to collect all available table shells
     html_parser = etree.HTMLParser()
     web_page = requests.get('https://www.census.gov/programs-surveys/acs/technical-documentation/table-shells.2019.html', timeout=10)
@@ -59,7 +59,7 @@ def find_tables(years, uid, pwd, ipaddress, start, alone, apikey, geo):
         if i['TableID'][0] == "B": 
             tables[i['TableID']] = i['TableTitle']
 
-def create_schema(years, uid, pwd, ipaddress, start, alone, apikey, geo):
+def create_schema(years, uid, pwd, ipaddress, start, alone, apikey, geo, cleanup):
     # Connect to the ACS db and create a fresh schema for each year:
     year1, year2 = year_split(years)
 
@@ -95,7 +95,7 @@ def create_db(ipaddress, uid, pwd):
     sql_server(drop_create_db, 'master', ipaddress, uid, pwd)
 
 
-def get_acs_data(years, uid, pwd, ipaddress, start, alone, apikey, geo):
+def get_acs_data(years, uid, pwd, ipaddress, start, alone, apikey, geo, cleanup):
     # Set up logging
     logger = logging.getLogger('api_logger')
     # If the user entered a specific table (optional arg), filter out the one's we've already done. 
@@ -144,6 +144,11 @@ def get_acs_data(years, uid, pwd, ipaddress, start, alone, apikey, geo):
  
                     # Call the ETL function
                     acs_ETL(df, filename, filepath, year, table, geo, uid=args.uid, pwd=args.pwd, ipaddress=args.ipaddress)
+
+                    if not cleanup:
+                        os.remove(filepath)
+                    else:
+                        pass
 
             except Exception as e:
                 traceback.print_exc()
@@ -261,7 +266,8 @@ if __name__ == "__main__":
     parser.add_argument('-z', '--zcta', required=False, action="store_false", help='This option allows for the selection of the ZCTA geographical rollup.')
     parser.add_argument('-st', '--state', required=False, action="store_false", help='This option allows for the selection of the State geographical rollup.')
     parser.add_argument('-c', '--county', required=False, action="store_false", help='This option allows for the selection of the County geographical rollup.')
-    
+    parser.add_argument('-cl', '--cleanup', required=False, action="store_false", help='This option allows for the cleanup of the host directory, to save disk space.')
+        
     # Print usage statement
     if len(sys.argv) < 2:
         parser.print_help()
@@ -316,7 +322,7 @@ if __name__ == "__main__":
         geos = ["ZCTA", "STATE", "COUNTY"]
 
     for f, rollup in product([create_schema, find_tables, get_acs_data], geos):
-        f(years=args.year, uid=args.uid, pwd=args.pwd, ipaddress=args.ipaddress, start=args.start, alone=args.alone, apikey=args.apikey, geo=rollup)
+        f(years=args.year, uid=args.uid, pwd=args.pwd, ipaddress=args.ipaddress, start=args.start, alone=args.alone, apikey=args.apikey, geo=rollup, cleanup=args.cleanup)
 
 
     # When the data pull is complete, write the logs to a csv file for easy reviewing
@@ -325,8 +331,3 @@ if __name__ == "__main__":
         writer = csv.writer(csvfile, delimiter=',',)
         writer.writerow(['EventTime', 'Origin', 'Level', 'Message'])
         writer.writerows(reader)
-    
-    # Delete the two txt files created by the logging. This step isn't necessary, but I like to clean
-    # up the dir when I'm done.
-    os.remove('/HostData/sql.txt')
-    os.remove('/HostData/api.txt')
