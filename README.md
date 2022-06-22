@@ -213,7 +213,7 @@ This step is REQUIRED, so your requests are not blocked or throttled by the Cens
     ssh test@localhost -p 2200 -Y -o GlobalKnownHostsFile=/dev/null -o UserKnownHostsFile=/dev/null \ python3 -u < acsAPI.py - "--year 2020 --uid sa --pwd Str0ngp@ssworD --ipaddress 172.17.0.2 --apikey 518mAs0401rm17Mtlo987654ert --alone --start "B01001" --county --cleanup"
     ```
 
-    This invocation does the following:
+    This example returns county level data from 2020 for table B01001. The breakdown of each option is below:
 
     ```
     * --year 2020 : Collects data from 2020
@@ -226,9 +226,6 @@ This step is REQUIRED, so your requests are not blocked or throttled by the Cens
     * --county : Only the "county" geographical rollup will be collected. 
     * --cleanup : Do not save a local copy of each scraped table.
     ```
-
-    Results : Returns county level data from 2020 for table B01001.
-
 
 7. Errors are written to _**logging.log**_ in the directory you bind-mounted in steps 4 and 5 with the -v option. If you prefer a csv formatted view of the logs, it's written to _**LOGFILE.csv**_ in the `/HostData` directory you defined in steps 4 and 5. 
 
