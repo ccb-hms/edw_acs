@@ -207,6 +207,8 @@ This step is REQUIRED, so your requests are not blocked or throttled by the Cens
 
     * **-cl, --cleanup: optional** Whether or not you'd like to save copies of the csv tables to your `/HostData` directory. Use this option by including _--cleanup_, to not use this option simply omit _--cleanup_ from your SSH invocation. 
 
+    * **-r, --restart: optional** This option allows for restarting of a collection, without restarting the container. If your process is stopped (manually or due to an error), you can use this option to pick up where you left off. Use this option by including _--restart_, to not use this option simply omit _--restart_ from your SSH invocation. 
+
     Example SSH invocation:
 
     ```

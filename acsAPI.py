@@ -19,7 +19,7 @@ import logging.config
 import csv
 import os
 
-def find_tables(years, uid, pwd, ipaddress, start, alone, apikey, geo, cleanup):
+def find_tables(years, uid, pwd, ipaddress, start, alone, apikey, geo, cleanup, restart):
     # Send an http request to the census website to collect all available table shells
     html_parser = etree.HTMLParser()
     web_page = requests.get('https://www.census.gov/programs-surveys/acs/technical-documentation/table-shells.2019.html', timeout=10)
@@ -59,28 +59,35 @@ def find_tables(years, uid, pwd, ipaddress, start, alone, apikey, geo, cleanup):
         if i['TableID'][0] == "B": 
             tables[i['TableID']] = i['TableTitle']
 
-def create_schema(years, uid, pwd, ipaddress, start, alone, apikey, geo, cleanup):
+def create_schema(years, uid, pwd, ipaddress, start, alone, apikey, geo, cleanup, restart):
+    logger = logging.getLogger('api_logger')
     # Connect to the ACS db and create a fresh schema for each year:
     year1, year2 = year_split(years)
 
     for year in range(year1, year2):
         # Create schema
-        year = str(year)
+        try:
+            year = str(year)
 
-        schema = f'''IF (NOT EXISTS (SELECT * FROM sys.schemas WHERE name = '{year}_{geo}')) 
-        BEGIN
-        EXEC ('CREATE SCHEMA [{year}_{geo}] AUTHORIZATION [dbo]')
-        END'''
+            schema = f'''IF (NOT EXISTS (SELECT * FROM sys.schemas WHERE name = '{year}_{geo}')) 
+            BEGIN
+            EXEC ('CREATE SCHEMA [{year}_{geo}] AUTHORIZATION [dbo]')
+            END'''
 
-        sql_server(schema, 'AmericanCommunitySurvey', ipaddress, uid, pwd)
+            sql_server(schema, 'AmericanCommunitySurvey', ipaddress, uid, pwd)
+            
+            # Create variablelabel table for all column names in human-readable format
+            create_variablelabel = "CREATE TABLE "+ f'[AmericanCommunitySurvey].[{year}_{geo}].[VariableLabels]' + "(TableName NVARCHAR(MAX), ColumnID NVARCHAR(MAX),Label NVARCHAR(MAX),Concept NVARCHAR(MAX),PredicateType NVARCHAR(MAX));"
+            sql_server(create_variablelabel, "AmericanCommunitySurvey", ipaddress, uid, pwd)
+
+            # Create table legends
+            create_legend = "CREATE TABLE "+ f'[AmericanCommunitySurvey].[{year}_{geo}].[TableLegend]' + "(TableName NVARCHAR(MAX), TableTitle NVARCHAR(MAX), TableUniverse NVARCHAR(MAX));"
+            sql_server(create_legend, "AmericanCommunitySurvey", ipaddress, uid, pwd)
         
-        # Create variablelabel table for all column names in human-readable format
-        create_variablelabel = "CREATE TABLE "+ f'[AmericanCommunitySurvey].[{year}_{geo}].[VariableLabels]' + "(TableName NVARCHAR(MAX), ColumnID NVARCHAR(MAX),Label NVARCHAR(MAX),Concept NVARCHAR(MAX),PredicateType NVARCHAR(MAX));"
-        sql_server(create_variablelabel, "AmericanCommunitySurvey", ipaddress, uid, pwd)
-
-        # Create table legends
-        create_legend = "CREATE TABLE "+ f'[AmericanCommunitySurvey].[{year}_{geo}].[TableLegend]' + "(TableName NVARCHAR(MAX), TableTitle NVARCHAR(MAX), TableUniverse NVARCHAR(MAX));"
-        sql_server(create_legend, "AmericanCommunitySurvey", ipaddress, uid, pwd)
+        except pyodbc.Error as e:
+            traceback.print_exc()
+            logger.warning(e)
+            pass
 
 
 
@@ -95,7 +102,7 @@ def create_db(ipaddress, uid, pwd):
     sql_server(drop_create_db, 'master', ipaddress, uid, pwd)
 
 
-def get_acs_data(years, uid, pwd, ipaddress, start, alone, apikey, geo, cleanup):
+def get_acs_data(years, uid, pwd, ipaddress, start, alone, apikey, geo, cleanup, restart):
     # Set up logging
     logger = logging.getLogger('api_logger')
     # If the user entered a specific table (optional arg), filter out the one's we've already done. 
@@ -266,6 +273,7 @@ if __name__ == "__main__":
     parser.add_argument('-z', '--zcta', required=False, action="store_false", help='This option allows for the selection of the ZCTA geographical rollup.')
     parser.add_argument('-st', '--state', required=False, action="store_false", help='This option allows for the selection of the State geographical rollup.')
     parser.add_argument('-c', '--county', required=False, action="store_false", help='This option allows for the selection of the County geographical rollup.')
+    parser.add_argument('-r', '--restart', required=False, action="store_false", help='This option allows for adding data without deleting previously collected data. Useful for when a scrape fails and you want to pick up at a certain point.')
     parser.add_argument('-cl', '--cleanup', required=False, action="store_false", help='This option allows for the cleanup of the host directory, to save disk space.')
         
     # Print usage statement
@@ -312,8 +320,11 @@ if __name__ == "__main__":
     logging.info(f'Starting data pull for {args.year}')
     
     #Create the db
-    create_db(ipaddress=args.ipaddress, uid=args.uid, pwd=args.pwd)
-    
+    if args.restart:
+        create_db(ipaddress=args.ipaddress, uid=args.uid, pwd=args.pwd)
+    else:
+        pass
+
     geos = {"ZCTA":args.zcta, "STATE":args.state, "COUNTY":args.county}
 
     geos = [x for x in geos if geos[x]==False]
@@ -322,7 +333,7 @@ if __name__ == "__main__":
         geos = ["ZCTA", "STATE", "COUNTY"]
 
     for f, rollup in product([create_schema, find_tables, get_acs_data], geos):
-        f(years=args.year, uid=args.uid, pwd=args.pwd, ipaddress=args.ipaddress, start=args.start, alone=args.alone, apikey=args.apikey, geo=rollup, cleanup=args.cleanup)
+        f(years=args.year, uid=args.uid, pwd=args.pwd, ipaddress=args.ipaddress, start=args.start, alone=args.alone, apikey=args.apikey, geo=rollup, cleanup=args.cleanup, restart=args.restart)
 
 
     # When the data pull is complete, write the logs to a csv file for easy reviewing
