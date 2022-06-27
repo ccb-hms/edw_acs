@@ -157,6 +157,10 @@ def get_acs_data(years, uid, pwd, ipaddress, start, alone, apikey, geo, cleanup,
                     else:
                         pass
 
+                    # Issue checkpoint
+                    checkpoint = 'CHECKPOINT'
+                    sql_server(checkpoint, 'AmericanCommunitySurvey', ipaddress, uid, pwd)
+
             except Exception as e:
                 traceback.print_exc()
                 logger.warning(e)
@@ -334,8 +338,7 @@ if __name__ == "__main__":
 
     for f, rollup in product([create_schema, find_tables, get_acs_data], geos):
         f(years=args.year, uid=args.uid, pwd=args.pwd, ipaddress=args.ipaddress, start=args.start, alone=args.alone, apikey=args.apikey, geo=rollup, cleanup=args.cleanup, restart=args.restart)
-
-
+    
     # When the data pull is complete, write the logs to a csv file for easy reviewing
     with open('/HostData/logging.log', 'r') as logfile, open('/HostData/LOGFILE.csv', 'w') as csvfile:
         reader = csv.reader(logfile, delimiter='|')
