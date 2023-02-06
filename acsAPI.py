@@ -77,11 +77,11 @@ def create_schema(years, uid, pwd, ipaddress, start, alone, apikey, geo, cleanup
             sql_server(schema, 'AmericanCommunitySurvey', ipaddress, uid, pwd)
             
             # Create variablelabel table for all column names in human-readable format
-            create_variablelabel = "CREATE TABLE "+ f'[AmericanCommunitySurvey].[{year}_{geo}].[VariableLabels]' + "(TableName NVARCHAR(MAX), ColumnID NVARCHAR(MAX),Label NVARCHAR(MAX),Concept NVARCHAR(MAX),PredicateType NVARCHAR(MAX));"
+            create_variablelabel = "CREATE TABLE "+ f'[AmericanCommunitySurvey].[{year}_{geo}].[VariableLabels]' + "(TableName VARCHAR(MAX), ColumnID VARCHAR(MAX),Label VARCHAR(MAX),Concept VARCHAR(MAX),PredicateType VARCHAR(MAX));"
             sql_server(create_variablelabel, "AmericanCommunitySurvey", ipaddress, uid, pwd)
 
             # Create table legends
-            create_legend = "CREATE TABLE "+ f'[AmericanCommunitySurvey].[{year}_{geo}].[TableLegend]' + "(TableName NVARCHAR(MAX), TableTitle NVARCHAR(MAX), TableUniverse NVARCHAR(MAX));"
+            create_legend = "CREATE TABLE "+ f'[AmericanCommunitySurvey].[{year}_{geo}].[TableLegend]' + "(TableName VARCHAR(MAX), TableTitle VARCHAR(MAX), TableUniverse VARCHAR(MAX));"
             sql_server(create_legend, "AmericanCommunitySurvey", ipaddress, uid, pwd)
         
         except pyodbc.Error as e:
@@ -174,14 +174,14 @@ def variablelabels(cols, table, year, geo):
     cols = cols.replace('!!', ' ', regex=True)
     cols['Label'] = cols['Label'].str.title()
     cols['Label'] = cols['Label'].str.replace(' ', '', regex=True)
-    cols['Predicate Type'] = cols['Predicate Type'].str.replace('string', 'NVARCHAR(MAX)', regex=True)
+    cols['Predicate Type'] = cols['Predicate Type'].str.replace('string', 'VARCHAR(MAX)', regex=True)
     cols['Predicate Type'] = cols['Predicate Type'].str.replace('int', 'INTEGER', regex=True)
 
     cols = cols.rename({'Name': 'ColumnID', 'Predicate Type':'PredicateType'}, axis=1)
     cols.drop(cols.tail(1).index,inplace=True)
 
     # Export the csv to sql as a table legend
-    variablelabels_csv = cols.to_csv('/HostData/variablelabels.txt', sep=',', encoding='utf-8', index=False)
+    variablelabels_csv = cols.to_csv('/HostData/variablelabels.csv', sep=',', encoding='utf-8', index=False)
     bulk_insert = "BULK INSERT " + f'[AmericanCommunitySurvey].[{year}_{geo}].[VariableLabels]' + "FROM '" + '/HostData/variablelabels.csv' + "' WITH (TABLOCK, FORMAT = 'CSV', FIRSTROW=2, FIELDTERMINATOR = ',',ROWTERMINATOR = '\n');"
     sql_server(bulk_insert, 'AmericanCommunitySurvey', ipaddress=args.ipaddress, uid=args.uid, pwd=args.pwd) 
 
@@ -216,7 +216,7 @@ def acs_ETL(df, tablename, filepath, year, table, geo, uid, pwd, ipaddress):
     create = pd.io.sql.get_schema(df, f'[AmericanCommunitySurvey].[{year}_{geo}].[{table}]')
     create = create.replace('"','',2)
     create = create.replace("TEXT", "|")
-    create = create.replace("|", "NVARCHAR(MAX)",1)
+    create = create.replace("|", "VARCHAR(MAX)",1)
 
     create = create.split(",")
 
@@ -224,10 +224,10 @@ def acs_ETL(df, tablename, filepath, year, table, geo, uid, pwd, ipaddress):
         if create[i][-4] == "E" or create[i][-4] == "M":
             create[i] = create[i].replace("|", "INTEGER")
         else:
-            create[i] = create[i].replace("|", "NVARCHAR(MAX)")      
+            create[i] = create[i].replace("|", "VARCHAR(MAX)")      
 
     create = ','.join(create)
-    create = create.replace("|", "NVARCHAR(MAX)")
+    create = create.replace("|", "VARCHAR(MAX)")
 
     # Execute table creation and bulk insert
     try:
@@ -303,12 +303,12 @@ if __name__ == "__main__":
             'api_calls': {
                 'class' : 'logging.FileHandler',
                 'formatter': 'simple_formatter',
-                'filename': '/HostData/api.txt'
+                'filename': '/HostData/api_log.txt'
             },
             'sql_calls': {
                 'class' : 'logging.FileHandler',
                 'formatter': 'simple_formatter',
-                'filename': '/HostData/sql.txt'
+                'filename': '/HostData/sql_log.txt'
             }
         },
         'loggers': {
@@ -345,3 +345,32 @@ if __name__ == "__main__":
         writer = csv.writer(csvfile, delimiter=',',)
         writer.writerow(['EventTime', 'Origin', 'Level', 'Message'])
         writer.writerows(reader)
+        
+# docker build -t acsapi .
+
+# docker run \
+# -e "ACCEPT_EULA=Y" \
+# -e "SA_PASSWORD=Str0ngp@ssworD" \
+# -p 1433:1433 \
+# --platform linux/amd64 \
+# --name sql1 \
+# --hostname sql1 \
+# -v ~/dev/spaghetti_dev/acsAPI:/HostData \
+# -v /Users/Sam/Desktop/sqldata1:/var/opt/mssql \
+# -d \
+# --rm \
+# mcr.microsoft.com/mssql/server:2019-latest
+ 
+#  docker \
+#  run \
+#      --rm \
+#      --platform linux/amd64 \
+#      --name acsapi \
+#      -d \
+#      -v ~/dev/spaghetti_dev/acsAPI:/HostData \
+#      -p 2200:22 \
+#      -e 'CONTAINER_USER_USERNAME=test' \
+#      -e 'CONTAINER_USER_PASSWORD=test' \
+#      acsapi 
+
+# ssh test@localhost -p 2200 -Y -o GlobalKnownHostsFile=/dev/null -o UserKnownHostsFile=/dev/null \ python3 -u < acsAPI.py - "--year 2020 --uid sa --pwd Str0ngp@ssworD --ipaddress 172.17.0.2 --apikey 62fade369e5f8276f58c592eed6a5a6e19bdbb3a --county --cleanup"
