@@ -18,6 +18,8 @@ import logging
 import logging.config
 import csv
 import os
+import numpy as np
+from csv import writer
 
 def find_tables(years, uid, pwd, ipaddress, start, alone, apikey, geo, cleanup, restart):
     # Send an http request to the census website to collect all available table shells
@@ -83,7 +85,7 @@ def create_schema(years, uid, pwd, ipaddress, start, alone, apikey, geo, cleanup
             # Create table legends
             create_legend = "CREATE TABLE "+ f'[AmericanCommunitySurvey].[{year}_{geo}].[TableLegend]' + "(TableName VARCHAR(MAX), TableTitle VARCHAR(MAX), TableUniverse VARCHAR(MAX));"
             sql_server(create_legend, "AmericanCommunitySurvey", ipaddress, uid, pwd)
-        
+
         except pyodbc.Error as e:
             traceback.print_exc()
             logger.warning(e)
@@ -136,7 +138,7 @@ def get_acs_data(years, uid, pwd, ipaddress, start, alone, apikey, geo, cleanup,
                     data = response.json()
                     df = pd.DataFrame(data[1:], columns=data[0])
                     df = clean(df)
-
+                    
                     # This API call is to get the human-readable version of all the columns per table.
                     response = requests.get(f"https://api.census.gov/data/{year}/acs/acs5/groups/{table}.html")         
                     cols = pd.read_html(response.text)[0]
@@ -232,13 +234,35 @@ def acs_ETL(df, tablename, filepath, year, table, geo, uid, pwd, ipaddress):
     # Execute table creation and bulk insert
     try:
         sql_server(create, 'AmericanCommunitySurvey', ipaddress, uid, pwd)
+        
         bulk_insert = "BULK INSERT " + f'[AmericanCommunitySurvey].[{year}_{geo}].[{table}]' + " FROM '" + filepath + "' WITH (TABLOCK, FORMAT = 'CSV', FIRSTROW=2, FIELDTERMINATOR = ',',ROWTERMINATOR = '\n');"
                                        
         sql_server(bulk_insert, 'AmericanCommunitySurvey', ipaddress, uid, pwd)
 
     except Exception as e:
-        traceback.print_exc()
-        logger.warning(e)
+        if "exceeds the maximum of 1024 columns" in str(e):
+            # We have to create the table as a wide table with sparse columns since it exceeds sql servers 1024 column limit
+            create = create.replace("VARCHAR(MAX)", "VARCHAR(MAX) SPARSE NULL")
+            create = create.replace("INTEGER", "INTEGER SPARSE NULL")
+            create = create[:-2] + ',\n "SpecialPurposeColumns" XML COLUMN_SET FOR ALL_SPARSE_COLUMNS);'
+
+            sql_server(create, 'AmericanCommunitySurvey', ipaddress, uid, pwd)
+
+            # We can't do a bulk insert, so we have to go row by row 
+            df.replace('', np.nan, inplace=True)
+            
+            df = df.dropna(axis='columns', how='all')
+            cols = str(df.columns.to_list()).replace("[","").replace("]","").replace("'","")
+            for row in df.to_numpy().tolist():
+                if "'" in row[0]:
+                    row[0] = row[0].replace("'","''")
+                values = str(row).replace("[","").replace("]","").replace('"',"'")
+                insert ="INSERT " + f'[AmericanCommunitySurvey].[{year}_{geo}].[{table}] ' +  "(" + cols + ")" + "VALUES (" + values + ");"  
+                sql_server(insert, 'AmericanCommunitySurvey', ipaddress, uid, pwd)
+
+        else:
+            traceback.print_exc()
+            logger.warning(e)
 
 
 def year_split(years):
