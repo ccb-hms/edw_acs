@@ -397,4 +397,4 @@ if __name__ == "__main__":
 #      -e 'CONTAINER_USER_PASSWORD=test' \
 #      acsapi 
 
-# ssh test@localhost -p 2200 -Y -o GlobalKnownHostsFile=/dev/null -o UserKnownHostsFile=/dev/null \ python3 -u < acsAPI.py - "--year 2020 --uid sa --pwd Str0ngp@ssworD --ipaddress 172.17.0.2 --apikey 62fade369e5f8276f58c592eed6a5a6e19bdbb3a --county --cleanup"
+# ssh test@localhost -p 2200 -Y -o GlobalKnownHostsFile=/dev/null -o UserKnownHostsFile=/dev/null \ python3 -u < acsAPI.py - "--year 2020 --uid sa --pwd Str0ngp@ssworD --ipaddress 172.17.0.2 --apikey e19bdbb3a --county --cleanup"
