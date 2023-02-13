@@ -145,7 +145,10 @@ This step is REQUIRED, so your requests are not blocked or throttled by the Cens
     ```
     
     This also appears to work correctly with the Azure SQL Edge container by substituting `mcr.microsoft.com/azure-sql-edge:latest` for the image name.
-
+    
+    With the -d option, Docker can run your container in detached mode. This means that even if you close the terminal, the process will continue in the background. To fully stop a container, you must do so manually through Docker Desktop or the terminal via `Docker kill -container name-`.
+    The -e option sets environment variables inside the container that are used to configure SQL Server.
+    The -p option is used to expose the ports that are used for the image instance.
     The -v option will bind mount two directories in the container: 
     
     `/HostData` and `/var/opt/mssql`.
@@ -155,8 +158,6 @@ This step is REQUIRED, so your requests are not blocked or throttled by the Cens
     -`/HostData` is a mounted directory linking the storage of the container to your local storage. In the above example `-v ~/Desktop/edw_acs_ETL:/HostData \`, The directory on my desktop where I want my files to be saved is `~/Desktop/edw_acs_ETL`. The `/HostData' directory is a data volume inside the container which, when data is saved to it, will now also save to your Desktop directory. 
     
     See [here](https://docs.microsoft.com/en-us/sql/linux/sql-server-linux-docker-container-configure?view=sql-server-ver16&pivots=cs1-bash) for more documentation.
-
-    the -e option sets environment variables inside the container that are used to configure SQL Server.
 
 5. Run the docker edw_acs container
    ```sh
