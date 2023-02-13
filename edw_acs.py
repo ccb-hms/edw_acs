@@ -2,6 +2,7 @@
 #Agency: Center for Computational Biomedicine (CCB)
 #Project: Exposome Data Warehouse - American Community Survey 5 Year Estimates API Download
 
+# Project imports
 import json
 import traceback
 import pandas as pd
@@ -34,11 +35,13 @@ def find_tables(years, uid, pwd, ipaddress, start, alone, apikey, geo, cleanup, 
     table_lst = pd.read_excel(link, engine='openpyxl')
     table_lst['Table Universe'] = table_lst['Table Universe'].str.replace('Universe: ','', regex=True)
 
+    # Data cleaning function
     table_lst = clean(table_lst)
 
     # Export the csv to sql as a table legend 
     legend = table_lst.to_csv('/HostData/TableLegend.csv', sep=',', encoding='utf-8', index=False)
 
+    # Year splitting function that returns the users' command line input as two numbers.
     year1, year2 = year_split(years)
 
     for year in range(year1, year2):
@@ -91,8 +94,7 @@ def create_schema(years, uid, pwd, ipaddress, start, alone, apikey, geo, cleanup
             logger.warning(e)
             pass
 
-
-
+# This function only executes if the user has NOT included the --restart option in the command line.
 def create_db(ipaddress, uid, pwd):
     # If the AmericanCommunitySurvey db has already been created, drop it and re-create it blank
     drop_create_db = '''USE master;
@@ -113,6 +115,7 @@ def get_acs_data(years, uid, pwd, ipaddress, start, alone, apikey, geo, cleanup,
     # If the user enters a range, assign variables to the beginning and end of the range
     year1, year2 = year_split(years)
 
+    # String formatting for the API url
     if geo == "ZCTA":
         api_geo = "zip%20code%20tabulation%20area:*"
     if geo == "STATE":
@@ -120,6 +123,7 @@ def get_acs_data(years, uid, pwd, ipaddress, start, alone, apikey, geo, cleanup,
     if geo == "COUNTY":
         api_geo = "county:*"
 
+    # If the user included the --alone argument in the command line, only the selected table will be downloaded.
     if not alone:
         filtered_tables = [start]
 
@@ -144,22 +148,22 @@ def get_acs_data(years, uid, pwd, ipaddress, start, alone, apikey, geo, cleanup,
                     cols = pd.read_html(response.text)[0]
                     variablelabels(cols, table, year, geo)
 
-                    # Write file to the shared directory, and call ETL function
+                    # Write the df to a .csv file in the shared directory, then ETL the file.
                     path = "/HostData/"
                     filename = f'ACS_5Y_Estimates_{year}_{geo}_{table}'
                     filepath = path + filename + ".txt"
-
                     df.to_csv(filepath, encoding='utf-8', index=False, sep=',')
  
                     # Call the ETL function
                     acs_ETL(df, filename, filepath, year, table, geo, uid=args.uid, pwd=args.pwd, ipaddress=args.ipaddress)
 
+                    # If the user selected --cleanup in the command line options, the .csv file will be deleted from the directory.
                     if not cleanup:
                         os.remove(filepath)
                     else:
                         pass
 
-                    # Issue checkpoint
+                    # Issue SQL checkpoint
                     checkpoint = 'CHECKPOINT'
                     sql_server(checkpoint, 'AmericanCommunitySurvey', ipaddress, uid, pwd)
 
@@ -169,6 +173,9 @@ def get_acs_data(years, uid, pwd, ipaddress, start, alone, apikey, geo, cleanup,
 
 
 def variablelabels(cols, table, year, geo):
+
+    # For each table, create a crosswalk table for the human-readable version of the column names
+    
     pd.options.mode.chained_assignment = None  # default='warn'
 
     cols = cols[['Name','Label','Concept','Predicate Type']]
@@ -240,19 +247,27 @@ def acs_ETL(df, tablename, filepath, year, table, geo, uid, pwd, ipaddress):
         sql_server(bulk_insert, 'AmericanCommunitySurvey', ipaddress, uid, pwd)
 
     except Exception as e:
+        # Some tables have >1024 columns. Here we are catching those and modifying their CREATE statement so as to store them as wide tables with sparse columns.
         if "exceeds the maximum of 1024 columns" in str(e):
-            # We have to create the table as a wide table with sparse columns since it exceeds sql servers 1024 column limit
+            # Cast all Varchar columns as sparse varchars
             create = create.replace("VARCHAR(MAX)", "VARCHAR(MAX) SPARSE NULL")
+            
+            # Cast all int columns as sparse ints
             create = create.replace("INTEGER", "INTEGER SPARSE NULL")
+            
+            # SpecialPurposeColumns wide table definition
             create = create[:-2] + ',\n "SpecialPurposeColumns" XML COLUMN_SET FOR ALL_SPARSE_COLUMNS);'
-
+            
+            # Create the table with the updated Create query
             sql_server(create, 'AmericanCommunitySurvey', ipaddress, uid, pwd)
 
-            # We can't do a bulk insert, so we have to go row by row 
+            # To fill the wide table with the data, rather than INSERTING all the null data, 
+            # we delete the columns with null data, and only INSERT data that is not null.
+            # This way, our INSERT statement isn't 1000+ columns long, when only 3 columns actually contain data.
             df.replace('', np.nan, inplace=True)
-            
             df = df.dropna(axis='columns', how='all')
             cols = str(df.columns.to_list()).replace("[","").replace("]","").replace("'","")
+
             for row in df.to_numpy().tolist():
                 if "'" in row[0]:
                     row[0] = row[0].replace("'","''")
@@ -280,6 +295,7 @@ def year_split(years):
     return(year1, year2)
 
 def sql_server(query, db, ipaddress, uid, pwd):
+    # Connect to SQL Server and execute a query
     conn = pyodbc.connect(f"DRIVER=ODBC Driver 17 for SQL Server;SERVER={ipaddress};DATABASE={db};UID={uid};PWD={pwd}", autocommit=True)
     cursor = conn.cursor()
     cursor.execute(query)
@@ -290,7 +306,7 @@ if __name__ == "__main__":
     # Construct the argument parser
     parser = argparse.ArgumentParser()
 
-    # Add the arguments to the parser
+    # Add the command line arguments to the parser
     parser.add_argument('-y', '--year', type= str, required=True, action="store", help='The year (format "YYYY"|]) or years (format "YYYY-YYYY") to download data for. This should be a str.')
     parser.add_argument('-s', '--start', type= str, required=False, action="store", default = 'B01001', help='To pull a single table, or start the pull from a specific table, define it here as a string, ex. "B01001".')
     parser.add_argument('-a', '--alone', required=False, action="store_false", help='This option allows for the selection of a single table to be downloaded.')
@@ -303,8 +319,8 @@ if __name__ == "__main__":
     parser.add_argument('-c', '--county', required=False, action="store_false", help='This option allows for the selection of the County geographical rollup.')
     parser.add_argument('-r', '--restart', required=False, action="store_false", help='This option allows for adding data without deleting previously collected data. Useful for when a scrape fails and you want to pick up at a certain point.')
     parser.add_argument('-cl', '--cleanup', required=False, action="store_false", help='This option allows for the cleanup of the host directory, to save disk space.')
-        
-    # Print usage statement
+
+    # Print usage help statement
     if len(sys.argv) < 2:
         parser.print_help()
         parser.print_usage()
@@ -315,7 +331,7 @@ if __name__ == "__main__":
     # Set up logging configs
     logging.basicConfig(filename='/HostData/logging.log',level=logging.INFO, format='%(asctime)s | %(name)s | %(levelname)s | %(message)s')
 
-    # I want to have logging from two separate functions, so here I'm defining the separate handlers and loggers
+    # I want to have logging from two separate functions, so here I'm defining the separate handlers and loggers for the different functions they'll be used in
     logging.config.dictConfig({
         'version': 1,
         'formatters': {
@@ -347,19 +363,22 @@ if __name__ == "__main__":
     # First line of the logs
     logging.info(f'Starting data pull for {args.year}')
     
-    #Create the db
+    # If the user has included the --restart option in the command line, 
+    # the db will not recreate, so it can be appended to rather than replacing old data.
     if args.restart:
         create_db(ipaddress=args.ipaddress, uid=args.uid, pwd=args.pwd)
     else:
         pass
 
+    # Organizing what geographical rollups the user chose
     geos = {"ZCTA":args.zcta, "STATE":args.state, "COUNTY":args.county}
-
     geos = [x for x in geos if geos[x]==False]
 
+    # If the user didn't specify any rollups, all are chosen.
     if len(geos) == 0:
         geos = ["ZCTA", "STATE", "COUNTY"]
 
+    # For each geographical rollup, execute create_schema first, then find_tables, then get_acs_data. All functions include the command line arguments.
     for f, rollup in product([create_schema, find_tables, get_acs_data], geos):
         f(years=args.year, uid=args.uid, pwd=args.pwd, ipaddress=args.ipaddress, start=args.start, alone=args.alone, apikey=args.apikey, geo=rollup, cleanup=args.cleanup, restart=args.restart)
     
@@ -370,6 +389,12 @@ if __name__ == "__main__":
         writer.writerow(['EventTime', 'Origin', 'Level', 'Message'])
         writer.writerows(reader)
         
+    
+# Example command line inputs, in order without instructions. 
+# It is not recommended to use these without thoroughly reading the documentation first,
+# but once you've done it a few times I find having these shortcuts is helpful. 
+# Thanks for using! -Sam
+
 # docker build -t acsapi .
 
 # docker run \
@@ -397,4 +422,4 @@ if __name__ == "__main__":
 #      -e 'CONTAINER_USER_PASSWORD=test' \
 #      acsapi 
 
-# ssh test@localhost -p 2200 -Y -o GlobalKnownHostsFile=/dev/null -o UserKnownHostsFile=/dev/null \ python3 -u < acsAPI.py - "--year 2020 --uid sa --pwd Str0ngp@ssworD --ipaddress 172.17.0.2 --apikey e19bdbb3a --county --cleanup"
+# ssh test@localhost -p 2200 -Y -o GlobalKnownHostsFile=/dev/null -o UserKnownHostsFile=/dev/null \ python3 -u < acsAPI.py - "--year 2020 --uid sa --pwd Str0ngp@ssworD --ipaddress 172.17.0.2 --apikey ABCDEFG123 --county --cleanup"
