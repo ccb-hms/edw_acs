@@ -223,6 +223,10 @@ This step is REQUIRED, so your requests are not blocked or throttled by the Cens
     ```
     ssh test@localhost -p 2200 -Y -o GlobalKnownHostsFile=/dev/null -o UserKnownHostsFile=/dev/null \ python3 -u < edw_acs.py - "--year 2020 --uid sa --pwd Str0ngp@ssworD --ipaddress 172.17.0.2 --apikey 123456789ABCDEFG --alone --start "B01001" --county --cleanup"
     ```
+    
+    Enter "yes" when prompted
+    
+    Enter "test" when prompted (or whatever password you set for your CONTAINER_USER_PASSWORD in step 5)
 
     This example returns county level data from 2020 just for table B01001. The breakdown of each option is below:
 
@@ -254,18 +258,6 @@ This step is REQUIRED, so your requests are not blocked or throttled by the Cens
       ```
 
 9. you can view the DB with your favorite database tool by logging into SQL server. I like Azure Data Studio, but any remote-accessible db tool will work.
-
-<!-- 
-  NP-TODO: I tried running once and loading some data, which worked fine.  I then killed the container and 
-  re-started, pointing at the same SQL data directory, and the SQL process seemed to hang in the re-started 
-  container.  I had a similar issue with my NHANES project: 
-  
-  https://github.com/ccb-hms/NHANES
-
-  Try issuing a CHECKPOINT to the DB *after* all of the tables are loaded and see if that resolves it.  Should be
-  able to test manually by running the ETL process as it is now, connecting via ADS and issuing the CHECKPOINT, then
-  killing / restarting the container.
--->
 
 <p align="right">(<a href="#top">back to top</a>)</p>
 
