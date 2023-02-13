@@ -50,7 +50,7 @@ This project was created as a way to efficiently download large datasets from th
 
 The American Community Survey (ACS) is an ongoing survey that provides data every year, giving communities the current information they need to plan investments and services. The ACS covers a broad range of topics about social, economic, demographic, and housing characteristics of the U.S. population. The 5-year estimates from the ACS are "period" estimates that represent data collected over a period of time. The primary advantage of using multiyear estimates is the increased statistical reliability of the data for less populated areas and small population subgroups. The 5-year estimates are available for all geographies down to the block group level. Unlike the 1-year estimates, geographies do not have to meet a particular population threshold in order to be published. 
 
-This project creates two Docker containers, sql1 and acs. The sql1 Docker container is running an isntance of SQL Server. The acs container is responsible for pulling the data from the census.gov site via python's requests module, writes the resulting data to a shared filesystem, then utlizes python's pyodbc module to bulk insert the data to SQL Server.
+This project creates two Docker containers, sql1 and edw_acs. The sql1 Docker container is running an intance of SQL Server. The edw_acs container is responsible for pulling the data from the census.gov site via python's requests module, writes the resulting data to a shared filesystem, then utlizes python's pyodbc module to bulk insert the data to SQL Server.
 
 The final database structure is American Community Survey --> {year}_{geographical rollup} --> {tablename}
 
@@ -102,13 +102,14 @@ This project is built using the following frameworks/libraries.
 ## Getting Started
 
 [Ensure you have Docker installed and running on your machine.](https://docs.docker.com/get-docker/)
-If you're not familiar with Docker, you can find a tutorial [here](https://docs.docker.com/get-started/)! Experience
+If you're not familiar with Docker, you can find a tutorial [here](https://docs.docker.com/get-started/). 
+Experience
 with Docker is not a necessarry prerequisite to running this code, but will be helpful if you would like to make modifications. 
 
 [Request a free Census.gov API key](https://api.census.gov/data/key_signup.html)
 This step is REQUIRED, so your requests are not blocked or throttled by the Census API.
 
-**Note:** This process takes appx. 30 HOURS for all tables, all geographical rollups, across all available years. 
+**Note:** This process takes appx. 30 HOURS for all tables, all geographical rollups, across all available years. The final data is *TODO* fill in final data time here
 
 ### Installation
 
@@ -180,9 +181,9 @@ This step is REQUIRED, so your requests are not blocked or throttled by the Cens
     
     * **-y, --year: _str_** The year you'd like to download data for in the format "YYYY" or a range of years "YYYY-YYYY". ACS 5 year estimates are available from 2009-2020.
 
-    * **-k, --apikey: _str_** The API key to access the Census.gov API.
+    * **-k, --apikey: _str_** The API key to access the Census.gov API. If you do not have one yet, [request a free Census.gov API key].(https://api.census.gov/data/key_signup.html)
     
-    * **-u, --uid: _str_** The username of the SQL server you're accessing. In the example we're using the default 'sa' uid, but be sure to change this if you are using different login credentials. 
+    * **-u, --uid: _str_** The username of the SQL server you're accessing. In the example we're using the default local 'sa' uid, but be sure to change this if you are using different login credentials. 
 
     * **-p, --pwd: _str_** The password you defined in step 4, with the -e option.
 
@@ -204,11 +205,11 @@ This step is REQUIRED, so your requests are not blocked or throttled by the Cens
 
     * **-c, --county: optional** Include this option to download all ACS 5 Year estimates by County. Can be combined with the -st/--state and -z/--zcta options to download for multiple rollups. Default behavior downloads for zcta, state, and counties.
 
-    * **-s, --start: _str, optional, default=‘B01001’_** The table you'd like to start with. This is usually helpful when doing a large data pull that is stopped for any reason. If the process stops due to an error, the console will print the last successful table that was pulled. If no _start_ is defined, default behavior is to start at the beginning, downloading all tables. 
+    * **-s, --start: _str, optional, default=‘B01001’_** The table you'd like to start with. This is usually helpful when doing a large data pull that is stopped for any reason. If the process stops due to an error, the console will print the last successful table that was pulled. If no _start_ is defined, default behavior is to start at B01001, the first table. 
 
-    * **-cl, --cleanup: optional** Whether or not you'd like to save copies of the csv tables to your `/HostData` directory. Use this option by including _--cleanup_, to not use this option simply omit _--cleanup_ from your SSH invocation. 
+    * **-cl, --cleanup: optional** This option will remove the downloaded files from your save directory as they are processed, freeing up space. Use this option by including _--cleanup_ in your SSH invocation.
 
-    * **-r, --restart: optional** This option allows for restarting of a collection, without restarting the container. If your process is stopped (manually or due to an error), you can use this option to pick up where you left off. Use this option by including _--restart_, to not use this option simply omit _--restart_ from your SSH invocation. 
+    * **-r, --restart: optional** This option allows for restarting of a collection, without restarting the container. If your process is stopped (manually or due to an error), you can use this option to pick up where you left off. Use this option by including _--restart_ in your SSH invocation. 
 
     Example SSH invocation:
 
