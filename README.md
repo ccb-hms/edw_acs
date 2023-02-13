@@ -141,13 +141,15 @@ This step is REQUIRED, so your requests are not blocked or throttled by the Cens
     -v sqldata1:/var/opt/mssql \
     -d \
     --rm \
-    mcr.microsoft.com/azure-sql-edge:latest
+    mcr.microsoft.com/mssql/server:2019-latest
     ```
     
-    This appears to work correctly with the Azure SQL Edge container by simply substituting `mcr.microsoft.com/azure-sql-edge:latest` for the image name.
+    This also appears to work correctly with the Azure SQL Edge container by substituting `mcr.microsoft.com/azure-sql-edge:latest` for the image name.
 
-    This command will bind mount two directories in the container: `/HostData` and `/var/opt/mssql`. `/var/opt/mssql` is the default location that SQL Server uses to store 
-    database files.  By mounting a directory on your host (`/HostData`) as a data volume in your container, your database files will be persisted for future use even after the container is deleted.  See [here](https://docs.microsoft.com/en-us/sql/linux/sql-server-linux-docker-container-configure?view=sql-server-ver16&pivots=cs1-bash) for more details.
+    The -v option will bind mount two directories in the container: 
+    `/HostData` and `/var/opt/mssql`. 
+    -`/var/opt/mssql` is the default location that SQL Server uses to store database files.  
+    -`/HostData` is a mounted directory linking the storage of the container to your local storage. In the above example `-v ~/Desktop/edw_acs_ETL:/HostData \`, The directory on my desktop where I want my files to be saved is `~/Desktop/edw_acs_ETL`. The `/HostData' directory is a data volume inside the container which, when data is saved to it, will now also save to your Desktop directory. See [here](https://docs.microsoft.com/en-us/sql/linux/sql-server-linux-docker-container-configure?view=sql-server-ver16&pivots=cs1-bash) for more documentation.
 
     the -e option sets environment variables inside the container that are used to configure SQL Server.
 
@@ -165,7 +167,7 @@ This step is REQUIRED, so your requests are not blocked or throttled by the Cens
         edw_acs 
     ```
 
-    This command mounts `/HostData` as a data volume in your container, such that your database files will be persisted for future use even after the container is deleted. You *MUST* use the same location for `/HostData` as in step 4. 
+    **Note**:You *MUST* use the same `-v` location for `/HostData` as in step 4. 
     
     The -p option allows for ssh listening on port 22 in the container, and forwarded to 2200 on the host. Meaning whenever something occurs on port 22 in the container, is mimicked on port 2200 on the host. 
     
@@ -197,7 +199,7 @@ This step is REQUIRED, so your requests are not blocked or throttled by the Cens
       ```
       to find the ip address.
 
-    * **-a, --alone: optional** Whether or not you'd like to download a single table, or all tables for the given year(s). This is helpful if you do not need all tables within a year. If _--alone_ is used, only the specified table will be pulled and exported to the mssql server. Default behavior is to download all tables available for the specified year. Use this option by including _--alone_, to not use this option simply omit _--alone_ from your SSH invocation (see example below). 
+    * **-a, --alone: optional** Whether or not you'd like to download a single table for the given year(s). This is helpful if you do not need all tables within a year. If _--alone_ is used, only the specified table will be pulled and exported to the mssql server. Default behavior is to download all tables available for the specified year. Use this option by including _--alone_, to not use this option simply omit _--alone_ from your SSH invocation (see example below). 
 
     * **-z, --zcta: optional** Include this option to download all ACS 5 Year estimates by ZCTA, or Zip Code Tabulated Areas. Can be combined with the -st/--state and -c/--county options to download for multiple rollups. Default behavior downloads for zcta, state, and counties.
 
@@ -214,10 +216,10 @@ This step is REQUIRED, so your requests are not blocked or throttled by the Cens
     Example SSH invocation:
 
     ```
-    ssh test@localhost -p 2200 -Y -o GlobalKnownHostsFile=/dev/null -o UserKnownHostsFile=/dev/null \ python3 -u < edw_acs.py - "--year 2020 --uid sa --pwd Str0ngp@ssworD --ipaddress 172.17.0.2 --apikey 518mAs0401rm17Mtlo987654ert --alone --start "B01001" --county --cleanup"
+    ssh test@localhost -p 2200 -Y -o GlobalKnownHostsFile=/dev/null -o UserKnownHostsFile=/dev/null \ python3 -u < edw_acs.py - "--year 2020 --uid sa --pwd Str0ngp@ssworD --ipaddress 172.17.0.2 --apikey 123456789ABCDEFG --alone --start "B01001" --county --cleanup"
     ```
 
-    This example returns county level data from 2020 for table B01001. The breakdown of each option is below:
+    This example returns county level data from 2020 just for table B01001. The breakdown of each option is below:
 
     * `--year 2020` : Collects data from 2020
     * `--uid sa` : Default system admin uid for mssql
