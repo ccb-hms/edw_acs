@@ -5,15 +5,15 @@
 <br />
 <div align="center">
 
-  <h3 align="center">ACS API</h3>
-
+  <h3 align="center">American Community Survey Data Download</h3>
+  <h3 align="center">A Part of the Exposome Data Warehouse Project.</h3>
   <p align="center">
     A Docker containerized API-based approach to download the Census Bureau's American Community Survey 5 Year Estimates
     <br />
     <br />
-    <a href="https://github.com/ccb-hms/acsAPI/issues">Report Bug</a>
+    <a href="https://github.com/ccb-hms/edw_acs/issues">Report Bug</a>
     ·
-    <a href="https://github.com/ccb-hms/acsAPI/issues">Request Feature</a>
+    <a href="https://github.com/ccb-hms/edw_acs/issues">Request Feature</a>
   </p>
 </div>
 
@@ -50,11 +50,12 @@ This project was created as a way to efficiently download large datasets from th
 
 The American Community Survey (ACS) is an ongoing survey that provides data every year, giving communities the current information they need to plan investments and services. The ACS covers a broad range of topics about social, economic, demographic, and housing characteristics of the U.S. population. The 5-year estimates from the ACS are "period" estimates that represent data collected over a period of time. The primary advantage of using multiyear estimates is the increased statistical reliability of the data for less populated areas and small population subgroups. The 5-year estimates are available for all geographies down to the block group level. Unlike the 1-year estimates, geographies do not have to meet a particular population threshold in order to be published. 
 
-This project creates two Docker containers, sql1 and acsAPI. The sql1 Docker container is running an isntance of SQL Server. The acsAPI container is responsible for pulling the data from the census.gov site via python's requests module, writes the resulting data to a shared filesystem, then utlizes python's pyodbc module to bulk insert the data to SQL Server.
+This project creates two Docker containers, sql1 and acs. The sql1 Docker container is running an isntance of SQL Server. The acs container is responsible for pulling the data from the census.gov site via python's requests module, writes the resulting data to a shared filesystem, then utlizes python's pyodbc module to bulk insert the data to SQL Server.
 
 The final database structure is American Community Survey --> {year}_{geographical rollup} --> {tablename}
 
 To further illustrate: If you are parsing multiple years from 2017-2018, and all geographical rollups, your final db schema will look like:
+ 
  - American Community Survey
    - 2017_COUNTY
      - B01001
@@ -113,17 +114,17 @@ This step is REQUIRED, so your requests are not blocked or throttled by the Cens
 
 1. Clone the repo into the directory of your choosing.
    ```sh
-   git clone https://github.com/ccb-hms/acsAPI.git
+   git clone https://github.com/ccb-hms/edw_acs.git
    ```
 
 2. Navigate your shell to the base directory of the newly cloned git repo.
    ```sh
-   cd acsAPI
+   cd edw_acs
    ```
 
 3. Build the docker image
    ```sh
-   docker build -t acsapi .
+   docker build -t edw_acs .
    ```
 
 4. Run the SQL Server container (for more information about Microsoft's SQL server container, view the [registry](https://hub.docker.com/_/microsoft-mssql-server)
@@ -135,7 +136,7 @@ This step is REQUIRED, so your requests are not blocked or throttled by the Cens
     -p 1433:1433 \
     --name sql1 \
     --hostname sql1 \
-    -v ~/Desktop/ACS_ETL:/HostData \
+    -v ~/Desktop/edw_acs_ETL:/HostData \
     -v sqldata1:/var/opt/mssql \
     -d \
     --rm \
@@ -149,18 +150,18 @@ This step is REQUIRED, so your requests are not blocked or throttled by the Cens
 
     the -e option sets environment variables inside the container that are used to configure SQL Server.
 
-5. Run the docker acsapi container
+5. Run the docker edw_acs container
    ```sh
    docker \
     run \
         --rm \
-        --name acsapi \
+        --name edw_acs \
         -d \
-        -v ~/Desktop/ACS_ETL:/HostData \
+        -v ~/Desktop/edw_acs_ETL:/HostData \
         -p 2200:22 \
         -e 'CONTAINER_USER_USERNAME=test' \
         -e 'CONTAINER_USER_PASSWORD=test' \
-        acsapi 
+        edw_acs 
     ```
 
     This command mounts `/HostData` as a data volume in your container, such that your database files will be persisted for future use even after the container is deleted. You *MUST* use the same location for `/HostData` as in step 4. 
@@ -172,7 +173,7 @@ This step is REQUIRED, so your requests are not blocked or throttled by the Cens
     
  6. Run the process inside the container over SSH with your desired arguments, entering 'yes' and your password ('test' if using the example above) when prompted:
     ```sh
-    ssh test@localhost -p 2200 -Y -o GlobalKnownHostsFile=/dev/null -o UserKnownHostsFile=/dev/null \ python3 -u < acsAPI.py - "-y/--year [year] -k/--apikey [apikey] -u/--uid [uid] -p/--pwd [pwd] -i/--ipaddress [ipaddress] -a/--alone [alone] -s/--start [start] -z/--zcta [zcta] -st/--state [state] -c/--county [county]"
+    ssh test@localhost -p 2200 -Y -o GlobalKnownHostsFile=/dev/null -o UserKnownHostsFile=/dev/null \ python3 -u < edw_acs.py - "-y/--year [year] -k/--apikey [apikey] -u/--uid [uid] -p/--pwd [pwd] -i/--ipaddress [ipaddress] -a/--alone [alone] -s/--start [start] -z/--zcta [zcta] -st/--state [state] -c/--county [county]"
     ```
 
     **Available parameters are:**
@@ -212,7 +213,7 @@ This step is REQUIRED, so your requests are not blocked or throttled by the Cens
     Example SSH invocation:
 
     ```
-    ssh test@localhost -p 2200 -Y -o GlobalKnownHostsFile=/dev/null -o UserKnownHostsFile=/dev/null \ python3 -u < acsAPI.py - "--year 2020 --uid sa --pwd Str0ngp@ssworD --ipaddress 172.17.0.2 --apikey 518mAs0401rm17Mtlo987654ert --alone --start "B01001" --county --cleanup"
+    ssh test@localhost -p 2200 -Y -o GlobalKnownHostsFile=/dev/null -o UserKnownHostsFile=/dev/null \ python3 -u < edw_acs.py - "--year 2020 --uid sa --pwd Str0ngp@ssworD --ipaddress 172.17.0.2 --apikey 518mAs0401rm17Mtlo987654ert --alone --start "B01001" --county --cleanup"
     ```
 
     This example returns county level data from 2020 for table B01001. The breakdown of each option is below:
@@ -233,7 +234,7 @@ This step is REQUIRED, so your requests are not blocked or throttled by the Cens
 8. When the process has finished, kill the docker containers using
       ```sh
       docker kill sql1
-      docker kill acsapi
+      docker kill edw_acs
       ```
     then run the following docker command to re-initialize the db in a fresh container.
       ```docker run \
@@ -263,7 +264,7 @@ This step is REQUIRED, so your requests are not blocked or throttled by the Cens
 <!-- CONTRIBUTING -->
 ## Contributing
 
-See the [open issues](https://github.com/ccb-hms/acsAPI/issues) for a full list of proposed features (and known issues).
+See the [open issues](https://github.com/ccb-hms/edw_acs/issues) for a full list of proposed features (and known issues).
 
 Contributions are what make the open source community such an amazing place to learn, inspire, and create. Any contributions you make are **greatly appreciated**.
 
