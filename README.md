@@ -6,7 +6,7 @@
 <div align="center">
 
   <h3 align="center">American Community Survey Data Download</h3>
-  <h3 align="center">A Part of the Exposome Data Warehouse Project.</h3>
+  <h3 align="center">A Part of the Exposome Data Warehouse Project</h3>
   <p align="center">
     A Docker containerized API-based approach to download the Census Bureau's American Community Survey 5 Year Estimates
     <br />
