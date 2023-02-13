@@ -147,10 +147,13 @@ This step is REQUIRED, so your requests are not blocked or throttled by the Cens
     This also appears to work correctly with the Azure SQL Edge container by substituting `mcr.microsoft.com/azure-sql-edge:latest` for the image name.
     
     With the -d option, Docker can run your container in detached mode. This means that even if you close the terminal, the process will continue in the background. To fully stop a container, you must do so manually through Docker Desktop or the terminal via `Docker kill -container name-`.
-    The -e option sets environment variables inside the container that are used to configure SQL Server.
-    The -p option is used to expose the ports that are used for the image instance.
-    The -v option will bind mount two directories in the container: 
     
+    The -e option allows for the establishment of username and password variables. 
+    
+    The -p option is used to expose the ports that are used for the image instance.
+    
+    The -v option will bind mount two directories in the container: 
+
     `/HostData` and `/var/opt/mssql`.
     
     -`/var/opt/mssql` is the default location that SQL Server uses to store database files.  
@@ -174,12 +177,8 @@ This step is REQUIRED, so your requests are not blocked or throttled by the Cens
     ```
 
     **Note**:You *MUST* use the same `-v` location for `/HostData` as in step 4. 
-    
-    The -p option allows for ssh listening on port 22 in the container, and forwarded to 2200 on the host. Meaning whenever something occurs on port 22 in the container, is mimicked on port 2200 on the host. 
-    
-    The -e option allows for the establishment of username and password variables. 
   
-    
+  
  6. Run the process inside the container over SSH with your desired arguments, entering 'yes' and your password ('test' if using the example above) when prompted:
     ```sh
     ssh test@localhost -p 2200 -Y -o GlobalKnownHostsFile=/dev/null -o UserKnownHostsFile=/dev/null \ python3 -u < edw_acs.py - "-y/--year [year] -k/--apikey [apikey] -u/--uid [uid] -p/--pwd [pwd] -i/--ipaddress [ipaddress] -a/--alone [alone] -s/--start [start] -z/--zcta [zcta] -st/--state [state] -c/--county [county]"
