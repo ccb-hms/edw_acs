@@ -159,7 +159,7 @@ This step is REQUIRED, so your requests are not blocked or throttled by the Cens
     
     -`/var/opt/mssql` is the default location that SQL Server uses to store database files.  
     
-    -`/HostData` is a mounted directory linking the storage of the container to your local storage. In the above example `-v ~/Desktop/edw_acs_ETL:/HostData \`, The directory on my desktop where I want my files to be saved is `~/Desktop/edw_acs_ETL`. The `/HostData' directory is a data volume inside the container which, when data is saved to it, will now also save to your Desktop directory. 
+    -`/HostData` is a mounted directory linking the storage of the container to your local storage. In the above example `-v C:/Users/User/EDW/edw_acs:/HostData \`, The directory on my desktop where I want my files to be saved is `C:/Users/User/EDW/edw_acs`. The `/HostData' directory is a data volume inside the container which, when data is saved to it, will now also save to your Desktop directory. 
     
     See [here](https://docs.microsoft.com/en-us/sql/linux/sql-server-linux-docker-container-configure?view=sql-server-ver16&pivots=cs1-bash) for more documentation.
 
