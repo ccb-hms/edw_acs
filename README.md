@@ -131,14 +131,15 @@ This step is REQUIRED, so your requests are not blocked or throttled by the Cens
 4. Run the SQL Server container (for more information about Microsoft's SQL server container, view the [registry](https://hub.docker.com/_/microsoft-mssql-server)
 
    ```sh
-   docker run \
+    docker run \
     -e "ACCEPT_EULA=Y" \
     -e "SA_PASSWORD=Str0ngp@ssworD" \
     -p 1433:1433 \
+    --platform linux/amd64 \
     --name sql1 \
     --hostname sql1 \
-    -v ~/Desktop/edw_acs_ETL:/HostData \
-    -v sqldata1:/var/opt/mssql \
+    -v C:/Users/User/EDW/edw_acs:/HostData \
+    -v C:/Users/User/Desktop/sqldata1:/var/opt/mssql \
     -d \
     --rm \
     mcr.microsoft.com/mssql/server:2019-latest
@@ -164,16 +165,17 @@ This step is REQUIRED, so your requests are not blocked or throttled by the Cens
 
 5. Run the docker edw_acs container
    ```sh
-   docker \
-    run \
-        --rm \
-        --name edw_acs \
-        -d \
-        -v ~/Desktop/edw_acs_ETL:/HostData \
-        -p 2200:22 \
-        -e 'CONTAINER_USER_USERNAME=test' \
-        -e 'CONTAINER_USER_PASSWORD=test' \
-        edw_acs 
+  docker \
+  run \
+      --rm \
+      --platform linux/amd64 \
+      --name edw_acs \
+      -d \
+      -v C:\Users\User\EDW\edw_acs:/HostData \
+      -p 2200:22 \
+      -e 'CONTAINER_USER_USERNAME=test' \
+      -e 'CONTAINER_USER_PASSWORD=test' \
+      edw_acs 
     ```
 
     **Note**:You *MUST* use the same `-v` location for `/HostData` as in step 4. 

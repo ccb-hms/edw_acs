@@ -194,6 +194,7 @@ def variablelabels(cols, table, year, geo):
     bulk_insert = "BULK INSERT " + f'[AmericanCommunitySurvey].[{year}_{geo}].[VariableLabels]' + "FROM '" + '/HostData/variablelabels.csv' + "' WITH (TABLOCK, FORMAT = 'CSV', FIRSTROW=2, FIELDTERMINATOR = ',',ROWTERMINATOR = '\n');"
     sql_server(bulk_insert, 'AmericanCommunitySurvey', ipaddress=args.ipaddress, uid=args.uid, pwd=args.pwd) 
 
+
 def clean(df):
     # Remove "ZCTA " from the first column values. Ex. "ZCTA 90210" --> "90210"
     df = df.replace('ZCTA5 ', '', regex=True)   
@@ -395,7 +396,7 @@ if __name__ == "__main__":
 # but once you've done it a few times I find having these shortcuts is helpful. 
 # Thanks for using! -Sam
 
-# docker build -t acsapi .
+# docker build -t edw_acs .
 
 # docker run \
 # -e "ACCEPT_EULA=Y" \
@@ -404,7 +405,7 @@ if __name__ == "__main__":
 # --platform linux/amd64 \
 # --name sql1 \
 # --hostname sql1 \
-# -v ~/dev/spaghetti_dev/acsAPI:/HostData \
+# -v ~/dev/spaghetti_dev/edw_acs:/HostData \
 # -v /Users/Sam/Desktop/sqldata1:/var/opt/mssql \
 # -d \
 # --rm \
@@ -414,12 +415,13 @@ if __name__ == "__main__":
 #  run \
 #      --rm \
 #      --platform linux/amd64 \
-#      --name acsapi \
+#      --name edw_acs \
 #      -d \
 #      -v ~/dev/spaghetti_dev/acsAPI:/HostData \
 #      -p 2200:22 \
 #      -e 'CONTAINER_USER_USERNAME=test' \
 #      -e 'CONTAINER_USER_PASSWORD=test' \
-#      acsapi 
+#      edw_acs 
 
-# ssh test@localhost -p 2200 -Y -o GlobalKnownHostsFile=/dev/null -o UserKnownHostsFile=/dev/null \ python3 -u < acsAPI.py - "--year 2020 --uid sa --pwd Str0ngp@ssworD --ipaddress 172.17.0.2 --apikey ABCDEFG123 --county --cleanup"
+# ssh test@localhost -p 2200 -Y -o GlobalKnownHostsFile=/dev/null -o UserKnownHostsFile=/dev/null \ python3 -u < edw_acs.py - "--year 2020 --uid sa --pwd Str0ngp@ssworD --ipaddress 172.17.0.2 --apikey ABCDEFG123 --county --cleanup"
+
