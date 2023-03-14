@@ -122,6 +122,10 @@ def get_acs_data(years, uid, pwd, ipaddress, start, alone, apikey, geo, cleanup,
         api_geo = "state:*"
     if geo == "COUNTY":
         api_geo = "county:*"
+    if "BLOCKGROUP" in geo:
+        state_codes = {"01":"AL","02":"AK","03":"AZ","04":"AR","05":"CA","06":"CO","07":"CT","08":"DE","09":"DC","10":"FL","11":"GA","12":"HA","13":"ID","14":"IL","15":"IN","16":"IO","17":"KS","18":"KY","19":"LO","20":"ME","21":"MD","22":"MA","23":"MI","24":"MN","25":"MS","26":"MO","27":"MT","28":"NE","29":"NV","30":"NH","31":"NJ","32":"NM","33":"NY","34":"NC","35":"ND","36":"OH","37":"OK","38":"OR","39":"PN","40":"RI","41":"SC","42":"SD","43":"TN","44":"TX","45":"UT","46":"VT","47":"VA","48":"WA","49":"WV","50":"WI","51":"WY"}    
+        state_code = [key for key,value in state_codes.items() if value == geo.replace("BLOCKGROUP_","")]
+        api_geo = f"block%20group:*&in=state:{state_code[0]}&in=county:*&in=tract:*"
 
     # If the user included the --alone argument in the command line, only the selected table will be downloaded.
     if not alone:
@@ -132,11 +136,14 @@ def get_acs_data(years, uid, pwd, ipaddress, start, alone, apikey, geo, cleanup,
         if table in filtered_tables:
             # API request to get all zipcode tabulated data for the current year and table
             print(f"{year} - {geo} - {table}")
-            try:
+
+            try:    
                 response = requests.get(f'https://api.census.gov/data/{year}/acs/acs5?get=NAME,group({table})&for={api_geo}&key={apikey}',timeout=100)            
+
                 if response.status_code != 200:
                     logger.warning(f'https://api.census.gov/data/{year}/acs/acs5?get=NAME,group({table})&for={api_geo}&key={apikey}')
                     pass
+                
                 else:
                     # If the API call returns data, load it as a json, then use pandas to transform the data into a dataframe
                     data = response.json()
@@ -153,7 +160,7 @@ def get_acs_data(years, uid, pwd, ipaddress, start, alone, apikey, geo, cleanup,
                     filename = f'ACS_5Y_Estimates_{year}_{geo}_{table}'
                     filepath = path + filename + ".txt"
                     df.to_csv(filepath, encoding='utf-8', index=False, sep=',')
- 
+
                     # Call the ETL function
                     acs_ETL(df, filename, filepath, year, table, geo, uid=args.uid, pwd=args.pwd, ipaddress=args.ipaddress)
 
@@ -170,12 +177,12 @@ def get_acs_data(years, uid, pwd, ipaddress, start, alone, apikey, geo, cleanup,
             except Exception as e:
                 traceback.print_exc()
                 logger.warning(e)
+ 
 
 
 def variablelabels(cols, table, year, geo):
-
     # For each table, create a crosswalk table for the human-readable version of the column names
-    
+
     pd.options.mode.chained_assignment = None  # default='warn'
 
     cols = cols[['Name','Label','Concept','Predicate Type']]
@@ -318,6 +325,7 @@ if __name__ == "__main__":
     parser.add_argument('-z', '--zcta', required=False, action="store_false", help='This option allows for the selection of the ZCTA geographical rollup.')
     parser.add_argument('-st', '--state', required=False, action="store_false", help='This option allows for the selection of the State geographical rollup.')
     parser.add_argument('-c', '--county', required=False, action="store_false", help='This option allows for the selection of the County geographical rollup.')
+    parser.add_argument('-b', '--blockgroup', required=False, action="store_false", help='This option allows for the selection of the block group level geographical rollup.')    
     parser.add_argument('-r', '--restart', required=False, action="store_false", help='This option allows for adding data without deleting previously collected data. Useful for when a scrape fails and you want to pick up at a certain point.')
     parser.add_argument('-cl', '--cleanup', required=False, action="store_false", help='This option allows for the cleanup of the host directory, to save disk space.')
 
@@ -361,6 +369,7 @@ if __name__ == "__main__":
             }
         }
     })
+    
     # First line of the logs
     logging.info(f'Starting data pull for {args.year}')
     
@@ -370,27 +379,45 @@ if __name__ == "__main__":
         create_db(ipaddress=args.ipaddress, uid=args.uid, pwd=args.pwd)
     else:
         pass
-
     # Organizing what geographical rollups the user chose
-    geos = {"ZCTA":args.zcta, "STATE":args.state, "COUNTY":args.county}
+    geos = {"ZCTA":args.zcta, "STATE":args.state, "COUNTY":args.county, "BLOCKGROUP":args.blockgroup}
     geos = [x for x in geos if geos[x]==False]
 
     # If the user didn't specify any rollups, all are chosen.
     if len(geos) == 0:
-        geos = ["ZCTA", "STATE", "COUNTY"]
+        geos = ["ZCTA", "STATE", "COUNTY", "BLOCKGROUP"]
 
-    # For each geographical rollup, execute create_schema first, then find_tables, then get_acs_data. All functions include the command line arguments.
-    for f, rollup in product([create_schema, find_tables, get_acs_data], geos):
-        f(years=args.year, uid=args.uid, pwd=args.pwd, ipaddress=args.ipaddress, start=args.start, alone=args.alone, apikey=args.apikey, geo=rollup, cleanup=args.cleanup, restart=args.restart)
-    
+    if "BLOCKGROUP" in geos and len(geos) > 0:
+        
+        # Create census block group state mappings     
+        state_codes = [ 'AK', 'AL', 'AR', 'AZ', 'CA', 'CO', 'CT', 'DC', 'DE', 'FL', 'GA',
+            'HI', 'IA', 'ID', 'IL', 'IN', 'KS', 'KY', 'LA', 'MA', 'MD', 'ME',
+            'MI', 'MN', 'MO', 'MS', 'MT', 'NC', 'ND', 'NE', 'NH', 'NJ', 'NM',
+            'NV', 'NY', 'OH', 'OK', 'OR', 'PA', 'RI', 'SC', 'SD', 'TN', 'TX',
+            'UT', 'VA', 'VT', 'WA', 'WI', 'WV', 'WY']
+
+        blockstring = 'BLOCKGROUP_'
+
+        state_geos = [f"{blockstring}{state}" for state in state_codes]
+
+        for f, rollup in product([create_schema, find_tables, get_acs_data], state_geos):
+            f(years=args.year, uid=args.uid, pwd=args.pwd, ipaddress=args.ipaddress, start=args.start, alone=args.alone, apikey=args.apikey, geo=rollup, cleanup=args.cleanup, restart=args.restart)
+
+        geos.remove("BLOCKGROUP")
+
+    if len(geos)>0:
+        # For each geographical rollup, execute create_schema first, then find_tables, then get_acs_data. All functions include the command line arguments.
+        for f, rollup in product([create_schema, find_tables, get_acs_data], geos):
+            f(years=args.year, uid=args.uid, pwd=args.pwd, ipaddress=args.ipaddress, start=args.start, alone=args.alone, apikey=args.apikey, geo=rollup, cleanup=args.cleanup, restart=args.restart)
+
     # When the data pull is complete, write the logs to a csv file for easy reviewing
     with open('/HostData/logging.log', 'r') as logfile, open('/HostData/LOGFILE.csv', 'w') as csvfile:
         reader = csv.reader(logfile, delimiter='|')
         writer = csv.writer(csvfile, delimiter=',',)
         writer.writerow(['EventTime', 'Origin', 'Level', 'Message'])
         writer.writerows(reader)
-        
-    
+
+
 # Example command line inputs, in order without instructions. 
 # It is not recommended to use these without thoroughly reading the documentation first,
 # but once you've done it a few times I find having these shortcuts is helpful. 
@@ -405,8 +432,8 @@ if __name__ == "__main__":
 # --platform linux/amd64 \
 # --name sql1 \
 # --hostname sql1 \
-# -v ~/dev/spaghetti_dev/edw_acs:/HostData \
-# -v /Users/Sam/Desktop/sqldata1:/var/opt/mssql \
+# -v ~/Desktop/:/HostData \
+# -v C:/Users/User/Desktop/sqldata1:/var/opt/mssql \
 # -d \
 # --rm \
 # mcr.microsoft.com/mssql/server:2019-latest
@@ -417,11 +444,10 @@ if __name__ == "__main__":
 #      --platform linux/amd64 \
 #      --name edw_acs \
 #      -d \
-#      -v ~/dev/spaghetti_dev/acsAPI:/HostData \
+#      -v C:/Users/User/Desktop/:/HostData \
 #      -p 2200:22 \
 #      -e 'CONTAINER_USER_USERNAME=test' \
 #      -e 'CONTAINER_USER_PASSWORD=test' \
 #      edw_acs 
 
-# ssh test@localhost -p 2200 -Y -o GlobalKnownHostsFile=/dev/null -o UserKnownHostsFile=/dev/null \ python3 -u < edw_acs.py - "--year 2020 --uid sa --pwd Str0ngp@ssworD --ipaddress 172.17.0.2 --apikey ABCDEFG123 --county --cleanup"
-
+# ssh test@localhost -p 2200 -Y -o GlobalKnownHostsFile=/dev/null -o UserKnownHostsFile=/dev/null \ python3 -u < edw_acs.py - "--year 2020 --uid sa --pwd Str0ngp@ssworD --ipaddress 172.17.0.2 --apikey ABCDEFGHIJK"
