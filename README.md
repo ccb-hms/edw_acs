@@ -183,7 +183,7 @@ This step is REQUIRED, so your requests are not blocked or throttled by the Cens
   
  6. Run the process inside the container over SSH with your desired arguments, entering 'yes' and your password ('test' if using the example above) when prompted:
     ```sh
-    ssh test@localhost -p 2200 -Y -o GlobalKnownHostsFile=/dev/null -o UserKnownHostsFile=/dev/null \ python3 -u < edw_acs.py - "-y/--year [year] -k/--apikey [apikey] -u/--uid [uid] -p/--pwd [pwd] -i/--ipaddress [ipaddress] -a/--alone [alone] -s/--start [start] -z/--zcta [zcta] -st/--state [state] -c/--county [county]"
+    ssh test@localhost -p 2200 -Y -o GlobalKnownHostsFile=/dev/null -o UserKnownHostsFile=/dev/null \ python3 -u < edw_acs.py - "-y/--year [year] -k/--apikey [apikey] -u/--uid [uid] -p/--pwd [pwd] -i/--ipaddress [ipaddress] -a/--alone [alone] -s/--start [start] -z/--zcta [zcta] -st/--state [state] -c/--county [county] -b/--blockgroup [blockgroup]"
     ```
 
     **Available parameters are:**
@@ -208,11 +208,13 @@ This step is REQUIRED, so your requests are not blocked or throttled by the Cens
 
     * **-a, --alone: optional** Whether or not you'd like to download a single table for the given year(s). This is helpful if you do not need all tables within a year. If _--alone_ is used, only the specified table will be pulled and exported to the mssql server. Default behavior is to download all tables available for the specified year. Use this option by including _--alone_, to not use this option simply omit _--alone_ from your SSH invocation (see example below). 
 
-    * **-z, --zcta: optional** Include this option to download all ACS 5 Year estimates by ZCTA, or Zip Code Tabulated Areas. Can be combined with the -st/--state and -c/--county options to download for multiple rollups. Default behavior downloads for zcta, state, and counties.
+    * **-z, --zcta: optional** Include this option to download all ACS 5 Year estimates by ZCTA, or Zip Code Tabulated Areas. Can be combined with the -st/--state, -c/--county, and -b/--blockgroup options to download for multiple rollups. Default behavior downloads for zcta, state, counties, and blockgroups.
 
-    * **-st, --state: optional** Include this option to download all ACS 5 Year estimates by State. Can be combined with the -z/--zcta and -c/--county options to download for multiple rollups. Default behavior downloads for zcta, state, and counties.
+    * **-st, --state: optional** Include this option to download all ACS 5 Year estimates by State. Can be combined with the -b/--blockgroup, -c/--county, and -z/--zcta options to download for multiple rollups. Default behavior downloads for zcta, state, counties, and blockgroups.
 
-    * **-c, --county: optional** Include this option to download all ACS 5 Year estimates by County. Can be combined with the -st/--state and -z/--zcta options to download for multiple rollups. Default behavior downloads for zcta, state, and counties.
+    * **-c, --county: optional** Include this option to download all ACS 5 Year estimates by County. Can be combined with the -st/--state, -b/--blockgroup, and -z/--zcta to download for multiple rollups. Default behavior downloads for zcta, state, counties, and blockgroups.
+    
+    * **-b, --blockgroup: optional** Include this option to download all ACS 5 Year estimates for all states at the Block Group level. Can be combined with the -st/--state, -c/--county, and -z/--zcta options to download for multiple rollups. Default behavior downloads for zcta, state, counties, and blockgroups.
 
     * **-s, --start: _str, optional, default=‘B01001’_** The table you'd like to start with. This is usually helpful when doing a large data pull that is stopped for any reason. If the process stops due to an error, the console will print the last successful table that was pulled. If no _start_ is defined, default behavior is to start at B01001, the first table. 
 
