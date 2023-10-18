@@ -109,7 +109,7 @@ with Docker is not a necessarry prerequisite to running this code, but will be h
 [Request a free Census.gov API key](https://api.census.gov/data/key_signup.html)
 This step is REQUIRED, so your requests are not blocked or throttled by the Census API.
 
-**Note:** This process takes appx. 30 HOURS for all tables, all geographical rollups, across all available years. The final data is *TODO* fill in final data time here
+**Note:** This process takes appx. 30 HOURS for all tables, all geographical rollups, across all available years. The final data is *TODO* fill in final data size here
 
 ### Installation
 
@@ -138,8 +138,8 @@ This step is REQUIRED, so your requests are not blocked or throttled by the Cens
     --platform linux/amd64 \
     --name sql1 \
     --hostname sql1 \
-    -v C:/Users/User/EDW/edw_acs:/HostData \
-    -v C:/Users/User/Desktop/sqldata1:/var/opt/mssql \
+    -v /Users/Sam/dev/spaghetti_dev/edw_acs:/HostData \
+    -v /Users/Sam/Desktop/sqldata1:/var/opt/mssql \
     -d \
     --rm \
     mcr.microsoft.com/mssql/server:2019-latest
@@ -171,7 +171,7 @@ This step is REQUIRED, so your requests are not blocked or throttled by the Cens
       --platform linux/amd64 \
       --name edw_acs \
       -d \
-      -v C:\Users\User\EDW\edw_acs:/HostData \
+    -v /Users/Sam/dev/spaghetti_dev/edw_acs:/HostData \
       -p 2200:22 \
       -e 'CONTAINER_USER_USERNAME=test' \
       -e 'CONTAINER_USER_PASSWORD=test' \
@@ -225,7 +225,7 @@ This step is REQUIRED, so your requests are not blocked or throttled by the Cens
     Example SSH invocation:
 
     ```
-    ssh test@localhost -p 2200 -Y -o GlobalKnownHostsFile=/dev/null -o UserKnownHostsFile=/dev/null \ python3 -u < edw_acs.py - "--year 2020 --uid sa --pwd Str0ngp@ssworD --ipaddress 172.17.0.2 --apikey 123456789ABCDEFG --alone --start "B01001" --county --cleanup"
+    ssh test@localhost -p 2200 -Y -o GlobalKnownHostsFile=/dev/null -o UserKnownHostsFile=/dev/null \ python3 -u < edw_acs.py - "--year 2009-2021 --uid sa --pwd Str0ngp@ssworD --ipaddress 172.17.0.2 --apikey 62fade369e5f8276f58c592eed6a5a6e19bdbb3a --cleanup"
     ```
     
     Enter "yes" when prompted
@@ -299,3 +299,11 @@ Distributed under the MIT License. See `LICENSE.txt` for more information.
 Sam Pullman - samantha_pullman@hms.harvard.edu
 
 <p align="right">(<a href="#top">back to top</a>)</p>
+
+
+
+works
+https://api.census.gov/data/2009/acs/acs5?get=NAME,group(B05001PR)&for=block%20group:*&in=state:06%20county:*&key=62fade369e5f8276f58c592eed6a5a6e19bdbb3a
+
+fails
+https://api.census.gov/data/2009/acs/acs5?get=NAME,group(B05001PR)&for=block%20group:*&in=state:02%20county:*&key=62fade369e5f8276f58c592eed6a5a6e19bdbb3a

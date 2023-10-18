@@ -25,7 +25,7 @@ from csv import writer
 def find_tables(years, uid, pwd, ipaddress, start, alone, apikey, geo, cleanup, restart):
     # Send an http request to the census website to collect all available table shells
     html_parser = etree.HTMLParser()
-    web_page = requests.get('https://www.census.gov/programs-surveys/acs/technical-documentation/table-shells.2019.html', timeout=10)
+    web_page = requests.get('https://www2.census.gov/programs-surveys/acs/tech_docs/table_shells/table_lists/2022_DataProductList.xlsx', timeout=10)
     web_page_html_string = web_page.content.decode("utf-8")
     str_io_obj = StringIO(web_page_html_string)
     dom_tree = etree.parse(str_io_obj, parser=html_parser)
@@ -47,6 +47,7 @@ def find_tables(years, uid, pwd, ipaddress, start, alone, apikey, geo, cleanup, 
     for year in range(year1, year2):
         # Create schema
         year = str(year)
+        print(os.getcwd())
         bulk_insert = "BULK INSERT " + f'[AmericanCommunitySurvey].[{year}_{geo}].[TableLegend]' + "FROM '" + '/HostData/TableLegend.csv' + "' WITH (TABLOCK, FORMAT = 'CSV', FIRSTROW=2, FIELDTERMINATOR = ',',ROWTERMINATOR = '\n');"
         sql_server(bulk_insert, 'AmericanCommunitySurvey', ipaddress=args.ipaddress, uid=args.uid, pwd=args.pwd) 
 
@@ -120,12 +121,14 @@ def get_acs_data(years, uid, pwd, ipaddress, start, alone, apikey, geo, cleanup,
         api_geo = "zip%20code%20tabulation%20area:*"
     if geo == "STATE":
         api_geo = "state:*"
+    
     if geo == "COUNTY":
         api_geo = "county:*"
+
     if "BLOCKGROUP" in geo:
         state_codes = {"01":"AL","02":"AK","03":"AZ","04":"AR","05":"CA","06":"CO","07":"CT","08":"DE","09":"DC","10":"FL","11":"GA","12":"HA","13":"ID","14":"IL","15":"IN","16":"IO","17":"KS","18":"KY","19":"LO","20":"ME","21":"MD","22":"MA","23":"MI","24":"MN","25":"MS","26":"MO","27":"MT","28":"NE","29":"NV","30":"NH","31":"NJ","32":"NM","33":"NY","34":"NC","35":"ND","36":"OH","37":"OK","38":"OR","39":"PN","40":"RI","41":"SC","42":"SD","43":"TN","44":"TX","45":"UT","46":"VT","47":"VA","48":"WA","49":"WV","50":"WI","51":"WY"}    
         state_code = [key for key,value in state_codes.items() if value == geo.replace("BLOCKGROUP_","")]
-        api_geo = f"block%20group:*&in=state:{state_code[0]}&in=county:*&in=tract:*"
+        api_geo = f"block%20group:*&in=state:{state_code[0]}%20county:*"
 
     # If the user included the --alone argument in the command line, only the selected table will be downloaded.
     if not alone:
@@ -433,7 +436,7 @@ if __name__ == "__main__":
 # --name sql1 \
 # --hostname sql1 \
 # -v ~/Desktop/:/HostData \
-# -v C:/Users/User/Desktop/sqldata1:/var/opt/mssql \
+# -v /Users/Sam/Desktop/sqldata1:/var/opt/mssql \
 # -d \
 # --rm \
 # mcr.microsoft.com/mssql/server:2019-latest
@@ -444,7 +447,7 @@ if __name__ == "__main__":
 #      --platform linux/amd64 \
 #      --name edw_acs \
 #      -d \
-#      -v C:/Users/User/Desktop/:/HostData \
+#      -v /Users/Sam/Desktop/:/HostData \
 #      -p 2200:22 \
 #      -e 'CONTAINER_USER_USERNAME=test' \
 #      -e 'CONTAINER_USER_PASSWORD=test' \
